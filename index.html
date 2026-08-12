@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WALLET HUNTER — симулятор перебора</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+
+  :root{
+    --bg: #05070a;
+    --panel: #0b0f14;
+    --panel-2: #10151c;
+    --line: #1c2530;
+    --green: #39ff8a;
+    --green-dim: #1f9955;
+    --amber: #ffb020;
+    --red: #ff4d4d;
+    --text: #cfe0d8;
+    --text-dim: #5c7268;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display:flex;
+    justify-content:center;
+    padding: 24px 14px 60px;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(57,255,138,0.05), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(255,176,32,0.04), transparent 40%);
+  }
+
+  .app{
+    width: 100%;
+    max-width: 560px;
+    zoom: var(--ui-scale, 1);
+  }
+
+  body.theme-blue{ --green: #3aa8ff; --green-dim: #1f6f99; }
+  body.theme-amber{ --green: #ffb020; --green-dim: #a06f10; }
+  body.theme-red{ --green: #ff5c5c; --green-dim: #a33333; }
+  body.theme-purple{ --green: #b57bff; --green-dim: #6f3fb0; }
+
+  /* ===== HEADER: total wallet space ===== */
+  .header{
+    text-align:center;
+    padding: 18px 0 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 18px;
+  }
+  .eyebrow{
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .total-space{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 15px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .total-space b{ color: var(--text); font-weight:700; }
+  .keyspace-bar{
+    width: 100%;
+    height: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    overflow:hidden;
+    margin-top: 10px;
+  }
+  .keyspace-fill{
+    height:100%;
+    width: 0.0000001%;
+    background: linear-gradient(90deg, var(--green-dim), var(--green));
+  }
+
+  /* ===== SCANNER: picking a seed phrase ===== */
+  .scanner{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .scanner-label{
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    margin-bottom: 12px;
+  }
+  .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: var(--green);
+    display:inline-block;
+    margin-right:7px;
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse{ 50%{ opacity:0.3; } }
+
+  .seed-guess{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.9;
+    color: var(--green);
+    min-height: 44px;
+    word-spacing: 6px;
+    letter-spacing: 0.3px;
+  }
+  .seed-guess span{
+    display:inline-block;
+    padding: 1px 5px;
+    margin: 1px;
+    background: rgba(57,255,138,0.06);
+    border: 1px solid rgba(57,255,138,0.15);
+    border-radius: 4px;
+  }
+
+  .rate-row{
+    display:flex;
+    justify-content: space-between;
+    margin-top: 14px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .rate-row b{ color: var(--amber); font-weight:700; }
+  .price-bar{
+    display:flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .price-chip{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .price-chip b{ color: var(--text); font-weight:700; }
+  .price-chip .ticker{ color: var(--text-dim); letter-spacing: 0.5px; }
+  .price-chip .delta{ font-size: 10.5px; margin-left: 4px; }
+  .price-chip .delta.up{ color: var(--green); }
+  .price-chip .delta.down{ color: var(--red); }
+  .price-meta{
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    display:flex;
+    align-items:center;
+    gap: 6px;
+  }
+  .live-dot{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--text-dim);
+    display:inline-block;
+  }
+  .price-meta.ok .live-dot{ background: var(--green); box-shadow:0 0 6px var(--green); animation: pulse 1.4s infinite; }
+  .price-meta.err .live-dot{ background: var(--red); }
+
+  /* ===== TABS ===== */
+  .tabs{
+    display:flex;
+    gap: 8px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab-btn{
+    flex:1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: var(--text-dim);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: 0.5px;
+    padding: 10px 8px 12px;
+    cursor:pointer;
+    border-bottom: 2px solid transparent;
+    transition: all .15s ease;
+  }
+  .tab-btn.active{
+    color: var(--green);
+    border-bottom-color: var(--green);
+  }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .tab-btn-icon{
+    flex: 0 0 44px;
+    font-size: 15px;
+  }
+
+  .ingame-balance-card{
+    background: var(--panel);
+    border: 1px solid var(--green);
+    border-radius: 10px;
+    padding: 20px;
+    text-align:center;
+  }
+  .ingame-balance-card .wallet-balance-val{ font-size: 30px; }
+  .donate-addr-list{
+    display:flex;
+    flex-direction:column;
+    gap: 8px;
+    margin: 10px 0;
+  }
+  .donate-addr-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .donate-addr-row .chain-tag{
+    font-weight:700;
+    color: var(--green);
+    font-size: 11px;
+    flex: none;
+  }
+  .donate-addr-row .addr-text{
+    flex:1;
+    font-size: 11px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .donate-addr-row .copy-btn{
+    flex: none;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor:pointer;
+  }
+
+
+  .wallet-input-row{
+    display:flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .wallet-input{
+    flex:1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 11px 12px;
+    min-width: 0;
+  }
+  .wallet-input:focus{ outline: none; border-color: var(--green); }
+  .wallet-track-btn{
+    flex: none;
+    background: var(--green-dim);
+    color: #04150a;
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    font-family:'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 11px 14px;
+    cursor:pointer;
+  }
+  .wallet-status{
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    min-height: 16px;
+  }
+  .wallet-status.err{ color: var(--red); }
+  .wallet-balance-card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    text-align:center;
+    margin-bottom: 18px;
+  }
+  .wallet-balance-label{
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .wallet-balance-val{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .wallet-balance-sub{
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  .wallet-events{
+    display:flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .wallet-event{
+    background: var(--panel);
+    border-left: 3px solid var(--green);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .wallet-event .amt{ color: var(--green); font-weight: 700; }
+  .wallet-event .time{ color: var(--text-dim); font-size: 10.5px; margin-top: 2px; }
+
+
+  .settings-group{ margin-bottom: 26px; }
+  .settings-label{
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .settings-label-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 10px;
+  }
+  .settings-label-row .settings-label{ margin-bottom: 0; }
+  .settings-size-val{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--green);
+  }
+  .settings-slider{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    outline: none;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+  .settings-slider::-webkit-slider-thumb{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  .settings-slider::-moz-range-thumb{
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  .settings-slider-marks{
+    display:flex;
+    justify-content:space-between;
+    margin-top: 6px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+  }
+  .settings-row{
+    display:flex;
+    gap: 8px;
+  }
+  .settings-opt{
+    flex:1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 10px 8px;
+    cursor:pointer;
+  }
+  .settings-opt.active{
+    color: var(--green);
+    border-color: var(--green);
+    background: var(--panel-2);
+  }
+  .settings-swatches{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .settings-swatch{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--sw);
+    font-family:'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 10px 14px;
+    cursor:pointer;
+  }
+  .settings-swatch.active{
+    border-color: var(--sw);
+    background: var(--panel-2);
+    box-shadow: 0 0 0 1px var(--sw) inset;
+  }
+
+
+  .shop-intro{
+    text-align:center;
+    padding: 4px 0 20px;
+  }
+  .shop-intro .eyebrow{ margin-bottom: 6px; }
+  .shop-current{
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .shop-current b{ color: var(--green); }
+  .shop-list{
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+  }
+  .shop-card{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .shop-card.active-tier{
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green) inset;
+  }
+  .shop-card-info{ display:flex; flex-direction:column; gap: 3px; }
+  .shop-card-mult{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .shop-card-desc{
+    font-size: 10.5px;
+    color: var(--text-dim);
+  }
+  .shop-card-price{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--amber);
+    white-space: nowrap;
+  }
+  .shop-buy-btn{
+    flex: none;
+    width: auto;
+    padding: 10px 16px;
+    font-size: 12px;
+    background: var(--green-dim);
+    color: #04150a;
+    border-color: var(--green);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.3;
+  }
+  .shop-buy-btn.owned{
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border-color: var(--line);
+    cursor: default;
+  }
+  .shop-buy-btn.locked{
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border-color: var(--line);
+  }
+  .shop-old-price{
+    text-decoration: line-through;
+    color: var(--red);
+    opacity: 0.75;
+    font-size: 10px;
+  }
+
+
+  .controls{
+    display:flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  button{
+    flex:1;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    padding: 13px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    cursor:pointer;
+    transition: all .15s ease;
+  }
+  button:active{ transform: scale(0.97); }
+  #toggleBtn{
+    background: var(--green-dim);
+    color: #04150a;
+    border-color: var(--green);
+  }
+  #toggleBtn.stopped{ background: var(--panel-2); color: var(--text); border-color: var(--line); }
+
+  /* ===== STATS: found wallets count ===== */
+  .stats{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat-card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat-label{
+    font-size: 10.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .stat-value{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-value.found{ color: var(--green); }
+  .stat-sub{
+    font-size: 10.5px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ===== FOUND LIST ===== */
+  .found-header{
+    display:flex;
+    justify-content: space-between;
+    align-items:baseline;
+    margin-bottom: 10px;
+    padding: 0 2px;
+  }
+  .found-header h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .found-header span{
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .empty-state{
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 30px 16px;
+    text-align:center;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    line-height:1.7;
+  }
+
+  .found-list{ display:flex; flex-direction:column; gap: 10px; }
+
+  .found-card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--green);
+    border-radius: 8px;
+    padding: 13px 14px;
+    animation: slideIn .35s ease;
+  }
+  @keyframes slideIn{
+    from{ opacity:0; transform: translateY(-6px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+  .found-top{
+    display:flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .found-idx{
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .coin-badge{
+    font-size: 9.5px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 7px;
+    vertical-align: middle;
+  }
+  .coin-badge.btc{ background: rgba(255,176,32,0.14); color: var(--amber); border: 1px solid rgba(255,176,32,0.3); }
+  .coin-badge.eth{ background: rgba(120,150,255,0.14); color: #a9b8ff; border: 1px solid rgba(120,150,255,0.3); }
+  .found-time{
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .found-seed{
+    position: relative;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+    word-spacing: 4px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 9px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .found-seed b{ color: var(--green); font-weight: 600; }
+  .found-seed.hidden-seed b{
+    filter: blur(5px);
+    transition: filter .15s ease;
+  }
+  .found-seed.hidden-seed:hover b{ filter: blur(4px); }
+  .found-seed .reveal-hint{
+    display:none;
+    position:absolute;
+    inset:0;
+    align-items:center;
+    justify-content:center;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: rgba(11,15,20,0.55);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+  .found-seed.hidden-seed .reveal-hint{ display:flex; }
+  .found-balance{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .btc-amt{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--amber);
+  }
+  .btc-amt.eth{ color: #a9b8ff; }
+  .usdt-amt{
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .usdt-amt b{ color: var(--green); }
+
+  .footnote{
+    margin-top: 26px;
+    text-align:center;
+    font-size: 10.5px;
+    line-height: 1.8;
+    color: var(--text-dim);
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabScanBtn" data-i18n="tabScan">⛏ подбор</button>
+    <button class="tab-btn" id="tabShopBtn" data-i18n="tabShop">⚡ ускорение</button>
+    <button class="tab-btn tab-btn-icon" id="tabWalletBtn" title="Мой кошелёк">👛</button>
+    <button class="tab-btn tab-btn-icon" id="tabSettingsBtn" title="Настройки">⚙</button>
+  </div>
+
+  <div class="tab-panel active" id="tabScan">
+
+  <div class="header">
+    <div class="eyebrow" data-i18n="eyebrowKeyspace">Пространство ключей BIP-39</div>
+    <div class="total-space"><span data-i18n="checkedLabel">Проверено комбинаций:</span> <b id="totalChecked">0</b> <span data-i18n="ofLabel">из</span> <b>2^128</b></div>
+    <div class="keyspace-bar"><div class="keyspace-fill" id="keyspaceFill"></div></div>
+  </div>
+
+  <div class="scanner">
+    <div class="scanner-label"><span><span class="dot"></span><span data-i18n="scannerLabel">подбор сид-фразы</span></span><span id="scanState">на паузе</span></div>
+    <div class="seed-guess" id="seedGuess">—</div>
+    <div class="rate-row">
+      <span><span data-i18n="rateLabel">скорость перебора:</span> <b id="rateVal">0</b> <span data-i18n="rateUnit">фраз/сек</span></span>
+    </div>
+    <div class="price-bar">
+      <span class="price-chip"><span class="ticker">BTC</span><span id="btcChipVal">$—</span></span>
+      <span class="price-chip"><span class="ticker">ETH</span><span id="ethChipVal">$—</span></span>
+    </div>
+    <div class="price-meta" id="priceMeta" data-i18n="priceConnecting">подключение к рынку…</div>
+  </div>
+
+  <div class="controls">
+    <button id="toggleBtn" class="stopped">▶ начать</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label" data-i18n="statFoundLabel">Найдено кошельков</div>
+      <div class="stat-value found" id="foundCount">0</div>
+      <div class="stat-sub" data-i18n="statFoundSub">с ненулевым балансом</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" data-i18n="statTotalLabel">Суммарно</div>
+      <div class="stat-value" id="totalUsdt">$0</div>
+      <div class="stat-sub" id="totalBtc">0.00000000 BTC</div>
+      <div class="stat-sub" id="totalEth">0.00000000 ETH</div>
+    </div>
+  </div>
+
+  <div class="found-header">
+    <h2 data-i18n="foundHeaderTitle">Найденные кошельки</h2>
+    <span id="foundHeaderCount">0 записей</span>
+  </div>
+
+  <div id="emptyState" class="empty-state" data-i18n="emptyState">
+    Пока пусто. Запусти перебор — совпадения будут появляться здесь вместе<br>с сид-фразой, балансом в BTC или ETH и конвертацией в USDT.
+  </div>
+
+  <div class="found-list" id="foundList"></div>
+
+  </div>
+
+  <div class="tab-panel" id="tabShop">
+    <div class="shop-intro">
+      <div class="eyebrow" data-i18n="shopEyebrow">Ускорение перебора</div>
+      <div class="shop-current"><span data-i18n="shopCurrent">текущая скорость:</span> <b id="shopCurrentMult">x1</b></div>
+      <div class="shop-current" style="margin-top:4px;">баланс: <b id="shopBalanceVal">$0.00</b></div>
+    </div>
+    <div class="shop-list" id="shopList"></div>
+    <div id="shopBuyStatus" class="wallet-status"></div>
+
+    <div class="settings-group" style="margin-top:24px; border-top:1px solid var(--line); padding-top:18px;">
+      <div class="settings-label" data-i18n="promoLabel">Промокод</div>
+      <div class="wallet-input-row">
+        <input type="text" id="promoInput" class="wallet-input" data-i18n-ph="promoPlaceholder" placeholder="Введи промокод">
+        <button id="promoBtn" class="wallet-track-btn" data-i18n="promoActivate">Активировать</button>
+      </div>
+      <div id="promoStatus" class="wallet-status"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tabWallet">
+    <div class="eyebrow">Баланс</div>
+    <div class="ingame-balance-card">
+      <div class="wallet-balance-val" id="ingameBalanceVal">$0.00</div>
+    </div>
+
+    <div id="donateBlock" style="display:none">
+      <div class="settings-label" style="margin-top:20px;">Пополнить донатом</div>
+      <div id="donateAddrList" class="donate-addr-list"></div>
+      <div class="wallet-status" id="donateHint">Отправь любую сумму в крипте на указанный адрес — баланс пополнится автоматически.</div>
+      <div id="walletEvents" class="wallet-events"></div>
+    </div>
+
+    <div class="settings-group" style="margin-top:26px; border-top:1px solid var(--line); padding-top:18px; display:none">
+      <div class="settings-label">Настройка адресов для приёма донатов (для владельца игры)</div>
+      <div class="wallet-input-row">
+        <input type="text" id="ownerBtcInput" class="wallet-input" placeholder="Твой BTC адрес (необязательно)">
+      </div>
+      <div class="wallet-input-row">
+        <input type="text" id="ownerEthInput" class="wallet-input" placeholder="Твой ETH адрес (необязательно)">
+      </div>
+      <button id="ownerSaveBtn" class="wallet-track-btn" style="width:100%;">Сохранить адреса</button>
+      <div class="wallet-status" id="ownerSaveStatus"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tabSettings">
+    <div class="settings-group">
+      <div class="settings-label-row">
+        <div class="settings-label" data-i18n="settingsSize">Размер интерфейса</div>
+        <div class="settings-size-val" id="sizeVal">100%</div>
+      </div>
+      <input type="range" id="sizeSlider" class="settings-slider" min="80" max="140" step="5" value="100">
+      <div class="settings-slider-marks">
+        <span data-i18n="sizeSmall">Компактный</span>
+        <span data-i18n="sizeLarge">Крупный</span>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-label" data-i18n="settingsColor">Цвет интерфейса</div>
+      <div class="settings-swatches" id="colorRow">
+        <button class="settings-swatch active" data-theme="green" style="--sw: #39ff8a" data-i18n="colorGreen">Зелёный</button>
+        <button class="settings-swatch" data-theme="blue" style="--sw: #3aa8ff" data-i18n="colorBlue">Синий</button>
+        <button class="settings-swatch" data-theme="amber" style="--sw: #ffb020" data-i18n="colorAmber">Янтарный</button>
+        <button class="settings-swatch" data-theme="red" style="--sw: #ff5c5c" data-i18n="colorRed">Красный</button>
+        <button class="settings-swatch" data-theme="purple" style="--sw: #b57bff" data-i18n="colorPurple">Фиолетовый</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-label" data-i18n="settingsLang">Язык</div>
+      <div class="settings-row" id="langRow">
+        <button class="settings-opt active" data-lang="ru">Русский</button>
+        <button class="settings-opt" data-lang="en">English</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const WORDS = ["abandon","ability","able","about","above","absent","absorb","abstract","absurd","abuse","access","accident","account","accuse","achieve","acid","acoustic","acquire","across","act","action","actor","actress","actual","adapt","add","addict","address","adjust","admit","adult","advance","advice","aerobic","affair","afford","afraid","again","age","agent","agree","ahead","aim","air","airport","aisle","alarm","album","alcohol","alert","alien","all","alley","allow","almost","alone","alpha","already","also","alter","always","amateur","amazing","among","amount","amused","analyst","anchor","ancient","anger","angle","angry","animal","ankle","announce","annual","another","answer","antenna","antique","anxiety","any","apart","apology","appear","apple","approve","april","arch","arctic","area","arena","argue","arm","armed","armor","army","around","arrange","arrest","arrive","arrow","art","artefact","artist","artwork","ask","aspect","assault","asset","assist","assume","asthma","athlete","atom","attack","attend","attitude","attract","auction","audit","august","aunt","author","auto","autumn","average","avocado","avoid","awake","aware","away","awesome","awful","awkward","axis","baby","bachelor","bacon","badge","bag","balance","balcony","ball","bamboo","banana","banner","bar","barely","bargain","barrel","base","basic","basket","battle","beach","bean","beauty","because","become","beef","before","begin","behave","behind","believe","below","belt","bench","benefit","best","betray","better","between","beyond","bicycle","bid","bike","bind","biology","bird","birth","bitter","black","blade","blame","blanket","blast","bleak","bless","blind","blood","blossom","blouse","blue","blur","blush","board","boat","body","boil","bomb","bone","bonus","book","boost","border","boring","borrow","boss","bottom","bounce","box","boy","bracket","brain","brand","brass","brave","bread","breeze","brick","bridge","brief","bright","bring","brisk","broccoli","broken","bronze","broom","brother","brown","brush","bubble","buddy","budget","buffalo","build","bulb","bulk","bullet","bundle","bunker","burden","burger","burst","bus","business","busy","butter","buyer","buzz","cabbage","cabin","cable","cactus","cage","cake","call","calm","camera","camp","can","canal","cancel","candy","cannon","canoe","canvas","canyon","capable","capital","captain","car","carbon","card","cargo","carpet","carry","cart","case","cash","casino","castle","casual","cat","catalog","catch","category","cattle","caught","cause","caution","cave","ceiling","celery","cement","census","century","cereal","certain","chair","chalk","champion","change","chaos","chapter","charge","chase","chat","cheap","check","cheese","chef","cherry","chest","chicken","chief","child","chimney","choice","choose","chronic","chuckle","chunk","churn","cigar","cinnamon","circle","citizen","city","civil","claim","clap","clarify","claw","clay","clean","clerk","clever","click","client","cliff","climb","clinic","clip","clock","clog","close","cloth","cloud","clown","club","clump","cluster","clutch","coach","coast","coconut","code","coffee","coil","coin","collect","color","column","combine","come","comfort","comic","common","company","concert","conduct","confirm","congress","connect","consider","control","convince","cook","cool","copper","copy","coral","core","corn","correct","cost","cotton","couch","country","couple","course","cousin","cover","coyote","crack","cradle","craft","cram","crane","crash","crater","crawl","crazy","cream","credit","creek","crew","cricket","crime","crisp","critic","crop","cross","crouch","crowd","crucial","cruel","cruise","crumble","crunch","crush","cry","crystal","cube","culture","cup","cupboard","curious","current","curtain","curve","cushion","custom","cute","cycle","dad","damage","damp","dance","danger","daring","dash","daughter","dawn","day","deal","debate","debris","decade","december","decide","decline","decorate","decrease","deer","defense","define","defy","degree","delay","deliver","demand","demise","denial","dentist","deny","depart","depend","deposit","depth","deputy","derive","describe","desert","design","desk","despair","destroy","detail","detect","develop","device","devote","diagram","dial","diamond","diary","dice","diesel","diet","differ","digital","dignity","dilemma","dinner","dinosaur","direct","dirt","disagree","discover","disease","dish","dismiss","disorder","display","distance","divert","divide","divorce","dizzy","doctor","document","dog","doll","dolphin","domain","donate","donkey","donor","door","dose","double","dove","draft","dragon","drama","drastic","draw","dream","dress","drift","drill","drink","drip","drive","drop","drum","dry","duck","dumb","dune","during","dust","dutch","duty","dwarf","dynamic","eager","eagle","early","earn","earth","easily","east","easy","echo","ecology","economy","edge","edit","educate","effort","egg","eight","either","elbow","elder","electric","elegant","element","elephant","elevator","elite","else","embark","embody","embrace","emerge","emotion","employ","empower","empty","enable","enact","end","endless","endorse","enemy","energy","enforce","engage","engine","enhance","enjoy","enlist","enough","enrich","enroll","ensure","enter","entire","entry","envelope","episode","equal","equip","era","erase","erode","erosion","error","erupt","escape","essay","essence","estate","eternal","ethics","evidence","evil","evoke","evolve","exact","example","excess","exchange","excite","exclude","excuse","execute","exercise","exhaust","exhibit","exile","exist","exit","exotic","expand","expect","expire","explain","expose","express","extend","extra","eye","eyebrow","fabric","face","faculty","fade","faint","faith","fall","false","fame","family","famous","fan","fancy","fantasy","farm","fashion","fat","fatal","father","fatigue","fault","favorite","feature","february","federal","fee","feed","feel","female","fence","festival","fetch","fever","few","fiber","fiction","field","figure","file","film","filter","final","find","fine","finger","finish","fire","firm","first","fiscal","fish","fit","fitness","fix","flag","flame","flash","flat","flavor","flee","flight","flip","float","flock","floor","flower","fluid","flush","fly","foam","focus","fog","foil","fold","follow","food","foot","force","forest","forget","fork","fortune","forum","forward","fossil","foster","found","fox","fragile","frame","frequent","fresh","friend","fringe","frog","front","frost","frown","frozen","fruit","fuel","fun","funny","furnace","fury","future","gadget","gain","galaxy","gallery","game","gap","garage","garbage","garden","garlic","garment","gas","gasp","gate","gather","gauge","gaze","general","genius","genre","gentle","genuine","gesture","ghost","giant","gift","giggle","ginger","giraffe","girl","give","glad","glance","glare","glass","glide","glimpse","globe","gloom","glory","glove","glow","glue","goat","goddess","gold","good","goose","gorilla","gospel","gossip","govern","gown","grab","grace","grain","grant","grape","grass","gravity","great","green","grid","grief","grit","grocery","group","grow","grunt","guard","guess","guide","guilt","guitar","gun","gym","habit","hair","half","hammer","hamster","hand","happy","harbor","hard","harsh","harvest","hat","have","hawk","hazard","head","health","heart","heavy","hedgehog","height","hello","helmet","help","hen","hero","hidden","high","hill","hint","hip","hire","history","hobby","hockey","hold","hole","holiday","hollow","home","honey","hood","hope","horn","horror","horse","hospital","host","hotel","hour","hover","hub","huge","human","humble","humor","hundred","hungry","hunt","hurdle","hurry","hurt","husband","hybrid","ice","icon","idea","identify","idle","ignore","ill","illegal","illness","image","imitate","immense","immune","impact","impose","improve","impulse","inch","include","income","increase","index","indicate","indoor","industry","infant","inflict","inform","inhale","inherit","initial","inject","injury","inmate","inner","innocent","input","inquiry","insane","insect","inside","inspire","install","intact","interest","into","invest","invite","involve","iron","island","isolate","issue","item","ivory","jacket","jaguar","jar","jazz","jealous","jeans","jelly","jewel","job","join","joke","journey","joy","judge","juice","jump","jungle","junior","junk","just","kangaroo","keen","keep","ketchup","key","kick","kid","kidney","kind","kingdom","kiss","kit","kitchen","kite","kitten","kiwi","knee","knife","knock","know","lab","label","labor","ladder","lady","lake","lamp","language","laptop","large","later","latin","laugh","laundry","lava","law","lawn","lawsuit","layer","lazy","leader","leaf","learn","leave","lecture","left","leg","legal","legend","leisure","lemon","lend","length","lens","leopard","lesson","letter","level","liar","liberty","library","license","life","lift","light","like","limb","limit","link","lion","liquid","list","little","live","lizard","load","loan","lobster","local","lock","logic","lonely","long","loop","lottery","loud","lounge","love","loyal","lucky","luggage","lumber","lunar","lunch","luxury","lyrics","machine","mad","magic","magnet","maid","mail","main","major","make","mammal","man","manage","mandate","mango","mansion","manual","maple","marble","march","margin","marine","market","marriage","mask","mass","master","match","material","math","matrix","matter","maximum","maze","meadow","mean","measure","meat","mechanic","medal","media","melody","melt","member","memory","mention","menu","mercy","merge","merit","merry","mesh","message","metal","method","middle","midnight","milk","million","mimic","mind","minimum","minor","minute","miracle","mirror","misery","miss","mistake","mix","mixed","mixture","mobile","model","modify","mom","moment","monitor","monkey","monster","month","moon","moral","more","morning","mosquito","mother","motion","motor","mountain","mouse","move","movie","much","muffin","mule","multiply","muscle","museum","mushroom","music","must","mutual","myself","mystery","myth","naive","name","napkin","narrow","nasty","nation","nature","near","neck","need","negative","neglect","neither","nephew","nerve","nest","net","network","neutral","never","news","next","nice","night","noble","noise","nominee","noodle","normal","north","nose","notable","note","nothing","notice","novel","now","nuclear","number","nurse","nut","oak","obey","object","oblige","obscure","observe","obtain","obvious","occur","ocean","october","odor","off","offer","office","often","oil","okay","old","olive","olympic","omit","once","one","onion","online","only","open","opera","opinion","oppose","option","orange","orbit","orchard","order","ordinary","organ","orient","original","orphan","ostrich","other","outdoor","outer","output","outside","oval","oven","over","own","owner","oxygen","oyster","ozone","pact","paddle","page","pair","palace","palm","panda","panel","panic","panther","paper","parade","parent","park","parrot","party","pass","patch","path","patient","patrol","pattern","pause","pave","payment","peace","peanut","pear","peasant","pelican","pen","penalty","pencil","people","pepper","perfect","permit","person","pet","phone","photo","phrase","physical","piano","picnic","picture","piece","pig","pigeon","pill","pilot","pink","pioneer","pipe","pistol","pitch","pizza","place","planet","plastic","plate","play","please","pledge","pluck","plug","plunge","poem","poet","point","polar","pole","police","pond","pony","pool","popular","portion","position","possible","post","potato","pottery","poverty","powder","power","practice","praise","predict","prefer","prepare","present","pretty","prevent","price","pride","primary","print","priority","prison","private","prize","problem","process","produce","profit","program","project","promote","proof","property","prosper","protect","proud","provide","public","pudding","pull","pulp","pulse","pumpkin","punch","pupil","puppy","purchase","purity","purpose","purse","push","put","puzzle","pyramid","quality","quantum","quarter","question","quick","quit","quiz","quote","rabbit","raccoon","race","rack","radar","radio","rail","rain","raise","rally","ramp","ranch","random","range","rapid","rare","rate","rather","raven","raw","razor","ready","real","reason","rebel","rebuild","recall","receive","recipe","record","recycle","reduce","reflect","reform","refuse","region","regret","regular","reject","relax","release","relief","rely","remain","remember","remind","remove","render","renew","rent","reopen","repair","repeat","replace","report","require","rescue","resemble","resist","resource","response","result","retire","retreat","return","reunion","reveal","review","reward","rhythm","rib","ribbon","rice","rich","ride","ridge","rifle","right","rigid","ring","riot","ripple","risk","ritual","rival","river","road","roast","robot","robust","rocket","romance","roof","rookie","room","rose","rotate","rough","round","route","royal","rubber","rude","rug","rule","run","runway","rural","sad","saddle","sadness","safe","sail","salad","salmon","salon","salt","salute","same","sample","sand","satisfy","satoshi","sauce","sausage","save","say","scale","scan","scare","scatter","scene","scheme","school","science","scissors","scorpion","scout","scrap","screen","script","scrub","sea","search","season","seat","second","secret","section","security","seed","seek","segment","select","sell","seminar","senior","sense","sentence","series","service","session","settle","setup","seven","shadow","shaft","shallow","share","shed","shell","sheriff","shield","shift","shine","ship","shiver","shock","shoe","shoot","shop","short","shoulder","shove","shrimp","shrug","shuffle","shy","sibling","sick","side","siege","sight","sign","silent","silk","silly","silver","similar","simple","since","sing","siren","sister","situate","six","size","skate","sketch","ski","skill","skin","skirt","skull","slab","slam","sleep","slender","slice","slide","slight","slim","slogan","slot","slow","slush","small","smart","smile","smoke","smooth","snack","snake","snap","sniff","snow","soap","soccer","social","sock","soda","soft","solar","soldier","solid","solution","solve","someone","song","soon","sorry","sort","soul","sound","soup","source","south","space","spare","spatial","spawn","speak","special","speed","spell","spend","sphere","spice","spider","spike","spin","spirit","split","spoil","sponsor","spoon","sport","spot","spray","spread","spring","spy","square","squeeze","squirrel","stable","stadium","staff","stage","stairs","stamp","stand","start","state","stay","steak","steel","stem","step","stereo","stick","still","sting","stock","stomach","stone","stool","story","stove","strategy","street","strike","strong","struggle","student","stuff","stumble","style","subject","submit","subway","success","such","sudden","suffer","sugar","suggest","suit","summer","sun","sunny","sunset","super","supply","supreme","sure","surface","surge","surprise","surround","survey","suspect","sustain","swallow","swamp","swap","swarm","swear","sweet","swift","swim","swing","switch","sword","symbol","symptom","syrup","system","table","tackle","tag","tail","talent","talk","tank","tape","target","task","taste","tattoo","taxi","teach","team","tell","ten","tenant","tennis","tent","term","test","text","thank","that","theme","then","theory","there","they","thing","this","thought","three","thrive","throw","thumb","thunder","ticket","tide","tiger","tilt","timber","time","tiny","tip","tired","tissue","title","toast","tobacco","today","toddler","toe","together","toilet","token","tomato","tomorrow","tone","tongue","tonight","tool","tooth","top","topic","topple","torch","tornado","tortoise","toss","total","tourist","toward","tower","town","toy","track","trade","traffic","tragic","train","transfer","trap","trash","travel","tray","treat","tree","trend","trial","tribe","trick","trigger","trim","trip","trophy","trouble","truck","true","truly","trumpet","trust","truth","try","tube","tuition","tumble","tuna","tunnel","turkey","turn","turtle","twelve","twenty","twice","twin","twist","two","type","typical","ugly","umbrella","unable","unaware","uncle","uncover","under","undo","unfair","unfold","unhappy","uniform","unique","unit","universe","unknown","unlock","until","unusual","unveil","update","upgrade","uphold","upon","upper","upset","urban","urge","usage","use","used","useful","useless","usual","utility","vacant","vacuum","vague","valid","valley","valve","van","vanish","vapor","various","vast","vault","vehicle","velvet","vendor","venture","venue","verb","verify","version","very","vessel","veteran","viable","vibrant","vicious","victory","video","view","village","vintage","violin","virtual","virus","visa","visit","visual","vital","vivid","vocal","voice","void","volcano","volume","vote","voyage","wage","wagon","wait","walk","wall","walnut","want","warfare","warm","warrior","wash","wasp","waste","water","wave","way","wealth","weapon","wear","weasel","weather","web","wedding","weekend","weird","welcome","west","wet","whale","what","wheat","wheel","when","where","whip","whisper","wide","width","wife","wild","will","win","window","wine","wing","wink","winner","winter","wire","wisdom","wise","wish","witness","wolf","woman","wonder","wood","wool","word","work","world","worry","worth","wrap","wreck","wrestle","wrist","write","wrong","yard","year","yellow","you","young","youth","zebra","zero","zone","zoo"];
+
+function genSeed(){
+  const s = [];
+  const used = new Set();
+  while(s.length < 12){
+    const w = WORDS[Math.floor(Math.random()*WORDS.length)];
+    if(used.has(w)) continue;
+    used.add(w);
+    s.push(w);
+  }
+  return s;
+}
+
+const TRANSLATIONS = {
+  ru: {
+    tabScan: '⛏ подбор',
+    tabShop: '⚡ ускорение',
+    eyebrowKeyspace: 'Пространство ключей BIP-39',
+    checkedLabel: 'Проверено комбинаций:',
+    ofLabel: 'из',
+    scannerLabel: 'подбор сид-фразы',
+    scanActive: 'активен',
+    scanPaused: 'на паузе',
+    rateLabel: 'скорость перебора:',
+    rateUnit: 'фраз/сек',
+    toggleStart: '▶ начать',
+    togglePause: '⏸ пауза',
+    toggleResume: '▶ продолжить',
+    priceConnecting: 'подключение к рынку…',
+    priceOk: 'реальные курсы BTC и ETH · обновлено {time}',
+    pricePartial: 'частично онлайн, второй курс приблизительный',
+    priceErr: 'нет связи с рынком — показан приблизительный курс',
+    statFoundLabel: 'Найдено кошельков',
+    statFoundSub: 'с ненулевым балансом',
+    statTotalLabel: 'Суммарно',
+    foundHeaderTitle: 'Найденные кошельки',
+    entrySingular: 'запись',
+    entryPlural: 'записей',
+    emptyState: 'Пока пусто. Запусти перебор — совпадения будут появляться здесь вместе<br>с сид-фразой, балансом в BTC или ETH и конвертацией в USDT.',
+    revealHint: 'нажмите, чтобы показать',
+    shopEyebrow: 'Ускорение перебора',
+    shopCurrent: 'текущая скорость:',
+    shopFree: 'бесплатно',
+    shopOwned: 'активно',
+    shopSelect: 'выбрать',
+    shopBuy: 'купить',
+    shopNotEnough: 'Недостаточно средств. Пополни баланс во вкладке 👛.',
+    promoLabel: 'Промокод',
+    promoPlaceholder: 'Введи промокод',
+    promoActivate: 'Активировать',
+    promoSuccess: 'Промокод активирован: скорость x16 и повышенный шанс находки открыты!',
+    promoInvalid: 'Неверный промокод',
+    shopDesc1: 'базовая скорость перебора',
+    shopDesc2: 'вдвое быстрее подбор фраз',
+    shopDesc4: 'заметный прирост скорости',
+    shopDesc8: 'высокая скорость перебора',
+    shopDesc16: 'максимальная скорость перебора',
+    settingsSize: 'Размер интерфейса',
+    sizeSmall: 'Компактный',
+    sizeMedium: 'Обычный',
+    sizeLarge: 'Крупный',
+    settingsColor: 'Цвет интерфейса',
+    colorGreen: 'Зелёный',
+    colorBlue: 'Синий',
+    colorAmber: 'Янтарный',
+    colorRed: 'Красный',
+    colorPurple: 'Фиолетовый',
+    settingsLang: 'Язык'
+  },
+  en: {
+    tabScan: '⛏ brute-force',
+    tabShop: '⚡ speed-up',
+    eyebrowKeyspace: 'BIP-39 key space',
+    checkedLabel: 'Combinations checked:',
+    ofLabel: 'of',
+    scannerLabel: 'seed phrase brute-force',
+    scanActive: 'active',
+    scanPaused: 'paused',
+    rateLabel: 'brute-force speed:',
+    rateUnit: 'phrases/sec',
+    toggleStart: '▶ start',
+    togglePause: '⏸ pause',
+    toggleResume: '▶ resume',
+    priceConnecting: 'connecting to market…',
+    priceOk: 'live BTC & ETH rates · updated {time}',
+    pricePartial: 'partially online, second rate is approximate',
+    priceErr: 'no market connection — showing approximate rate',
+    statFoundLabel: 'Wallets found',
+    statFoundSub: 'with non-zero balance',
+    statTotalLabel: 'Total',
+    foundHeaderTitle: 'Found wallets',
+    entrySingular: 'entry',
+    entryPlural: 'entries',
+    emptyState: 'Nothing yet. Start the brute-force — matches will appear here<br>with the seed phrase, BTC or ETH balance, and USDT conversion.',
+    revealHint: 'tap to reveal',
+    shopEyebrow: 'Brute-force speed-up',
+    shopCurrent: 'current speed:',
+    shopFree: 'free',
+    shopOwned: 'active',
+    shopSelect: 'select',
+    shopBuy: 'buy',
+    shopNotEnough: 'Not enough balance. Top up in the 👛 tab.',
+    promoLabel: 'Promo code',
+    promoPlaceholder: 'Enter promo code',
+    promoActivate: 'Activate',
+    promoSuccess: 'Promo code activated: x16 speed and boosted find chance unlocked!',
+    promoInvalid: 'Invalid promo code',
+    shopDesc1: 'base brute-force speed',
+    shopDesc2: 'twice as fast phrase checking',
+    shopDesc4: 'noticeable speed boost',
+    shopDesc8: 'high brute-force speed',
+    shopDesc16: 'maximum brute-force speed',
+    settingsSize: 'Interface size',
+    sizeSmall: 'Compact',
+    sizeMedium: 'Normal',
+    sizeLarge: 'Large',
+    settingsColor: 'Interface color',
+    colorGreen: 'Green',
+    colorBlue: 'Blue',
+    colorAmber: 'Amber',
+    colorRed: 'Red',
+    colorPurple: 'Purple',
+    settingsLang: 'Language'
+  }
+};
+let currentLang = 'ru';
+function t(key){ return (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || key; }
+
+function applyStaticTranslations(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if(key === 'emptyState'){
+      el.innerHTML = t('emptyState');
+    } else {
+      el.textContent = t(key);
+    }
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    el.placeholder = t(el.getAttribute('data-i18n-ph'));
+  });
+}
+
+const seedGuessEl = document.getElementById('seedGuess');
+const totalCheckedEl = document.getElementById('totalChecked');
+const rateValEl = document.getElementById('rateVal');
+const foundCountEl = document.getElementById('foundCount');
+const totalUsdtEl = document.getElementById('totalUsdt');
+const totalBtcEl = document.getElementById('totalBtc');
+const foundListEl = document.getElementById('foundList');
+const emptyStateEl = document.getElementById('emptyState');
+const foundHeaderCountEl = document.getElementById('foundHeaderCount');
+const toggleBtn = document.getElementById('toggleBtn');
+const scanStateEl = document.getElementById('scanState');
+const keyspaceFill = document.getElementById('keyspaceFill');
+
+let checked = 0;
+let foundCount = 0;
+let totalBtc = 0;
+let totalEth = 0;
+let running = false;
+let promoActive = false;
+let speedMult = 1;
+
+const prices = { BTC: null, ETH: null };
+const prevPrices = { BTC: null, ETH: null };
+const isLive = { BTC: false, ETH: false };
+// rough fallback used only when the market can't be reached at all
+const APPROX_FALLBACK = { BTC: 65000, ETH: 1900 };
+
+const priceMetaEl = document.getElementById('priceMeta');
+const btcChipVal = document.getElementById('btcChipVal');
+const ethChipVal = document.getElementById('ethChipVal');
+
+function renderChip(coin){
+  const el = coin === 'BTC' ? btcChipVal : ethChipVal;
+  const price = prices[coin];
+  if(price == null){ el.textContent = '$—'; return; }
+  const prev = prevPrices[coin];
+  let arrow = '';
+  let cls = '';
+  if(isLive[coin] && prev != null){
+    if(price > prev){ arrow = ' ▲'; cls = 'up'; }
+    else if(price < prev){ arrow = ' ▼'; cls = 'down'; }
+  }
+  const approxTag = isLive[coin] ? '' : ' <span class="delta">≈</span>';
+  el.innerHTML = `$${price.toLocaleString('en-US',{maximumFractionDigits: price < 100 ? 2 : 0})}${arrow ? ` <span class="delta ${cls}">${arrow.trim()}</span>` : approxTag}`;
+}
+
+function refreshTotals(){
+  if(prices.BTC != null) totalBtcEl.textContent = totalBtc.toFixed(8) + ' BTC';
+  const ethEl = document.getElementById('totalEth');
+  if(ethEl) ethEl.textContent = totalEth.toFixed(8) + ' ETH';
+  const usdt = (prices.BTC != null ? totalBtc * prices.BTC : 0) + (prices.ETH != null ? totalEth * prices.ETH : 0);
+  totalUsdtEl.textContent = fmtUsdt(usdt);
+}
+
+function fetchWithTimeout(url, ms){
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('таймаут')), ms);
+  });
+  return Promise.race([fetch(url), timeout]);
+}
+
+async function fetchFromBinance(symbol){
+  const res = await fetchWithTimeout(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`, 6000);
+  const data = await res.json();
+  const val = data && parseFloat(data.price);
+  if(!val) throw new Error('binance: bad payload');
+  return val;
+}
+
+async function fetchFromCoinGecko(id){
+  const res = await fetchWithTimeout(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`, 6000);
+  const data = await res.json();
+  const val = data && data[id] && data[id].usd;
+  if(!val) throw new Error('coingecko: bad payload');
+  return val;
+}
+
+async function fetchFromCoinbase(pair){
+  const res = await fetchWithTimeout(`https://api.coinbase.com/v2/prices/${pair}/spot`, 6000);
+  const data = await res.json();
+  const val = data && data.data && parseFloat(data.data.amount);
+  if(!val) throw new Error('coinbase: bad payload');
+  return val;
+}
+
+const COIN_SOURCES = {
+  BTC: [
+    ['Binance', () => fetchFromBinance('BTCUSDT')],
+    ['CoinGecko', () => fetchFromCoinGecko('bitcoin')],
+    ['Coinbase', () => fetchFromCoinbase('BTC-USD')],
+  ],
+  ETH: [
+    ['Binance', () => fetchFromBinance('ETHUSDT')],
+    ['CoinGecko', () => fetchFromCoinGecko('ethereum')],
+    ['Coinbase', () => fetchFromCoinbase('ETH-USD')],
+  ],
+};
+
+async function fetchCoinPrice(coin){
+  let price = null;
+  let lastError = null;
+  for(const [name, fn] of COIN_SOURCES[coin]){
+    try{
+      price = await fn();
+      if(price != null) break;
+    }catch(e){
+      lastError = `${coin} @ ${name}: ${e.message || 'ошибка сети'}`;
+    }
+  }
+  return { price, lastError };
+}
+
+async function fetchAllPrices(){
+  const [btcRes, ethRes] = await Promise.all([fetchCoinPrice('BTC'), fetchCoinPrice('ETH')]);
+
+  const errors = [];
+
+  ['BTC','ETH'].forEach((coin, i) => {
+    const res = i === 0 ? btcRes : ethRes;
+    if(res.price != null){
+      prevPrices[coin] = isLive[coin] ? prices[coin] : null;
+      prices[coin] = res.price;
+      isLive[coin] = true;
+    } else {
+      if(res.lastError) errors.push(res.lastError);
+      // no live price yet at all (first load failed) — use an approximate figure so the game still works
+      if(prices[coin] == null){
+        prices[coin] = APPROX_FALLBACK[coin];
+        isLive[coin] = false;
+      }
+      // if we previously had a live price and just lost connection, keep showing the last known
+      // value (still marked as not-live going forward would need another flag; simplest: leave isLive as-is)
+    }
+  });
+
+  renderChip('BTC');
+  renderChip('ETH');
+  refreshTotals();
+
+  const liveCount = (isLive.BTC ? 1 : 0) + (isLive.ETH ? 1 : 0);
+  const now = new Date().toLocaleTimeString('ru-RU');
+
+  if(liveCount === 2){
+    priceMetaEl.className = 'price-meta ok';
+    priceMetaEl.innerHTML = `<span class="live-dot"></span>${t('priceOk').replace('{time}', now)}`;
+  } else if(liveCount === 1){
+    priceMetaEl.className = 'price-meta ok';
+    priceMetaEl.innerHTML = `<span class="live-dot"></span>${t('pricePartial')}${errors.length ? ' — ' + errors[0] : ''}`;
+  } else {
+    priceMetaEl.className = 'price-meta err';
+    priceMetaEl.innerHTML = `<span class="live-dot"></span>${t('priceErr')}`;
+  }
+}
+
+fetchAllPrices();
+setInterval(fetchAllPrices, 12000);
+
+function fmtUsdt(n){
+  return '$' + n.toLocaleString('en-US', {maximumFractionDigits:2, minimumFractionDigits:2});
+}
+
+function tickGuess(){
+  if(!running) return;
+  const s = genSeed();
+  seedGuessEl.innerHTML = s.map(w=>`<span>${w}</span>`).join(' ');
+  checked += Math.floor(1 * speedMult);
+  totalCheckedEl.textContent = checked.toLocaleString('en-US');
+
+  // tiny visual creep on the keyspace bar, purely cosmetic (never meaningfully fills)
+  const pct = Math.min(0.02 * Math.log10(checked+1), 8);
+  keyspaceFill.style.width = pct + '%';
+
+  // rare "hit" — fake match with fake balance (wait until at least one real price loaded)
+  const hitChance = promoActive ? 0.001 : (0.0000002 * speedMult);
+  if((prices.BTC != null || prices.ETH != null) && Math.random() < hitChance){
+    registerFind(s);
+  }
+}
+
+function registerFind(seedWords){
+  foundCount++;
+
+  // pick whichever coins currently have a live price; if both, pick randomly
+  const available = ['BTC','ETH'].filter(c => prices[c] != null);
+  const coin = available[Math.floor(Math.random()*available.length)];
+  const price = prices[coin];
+
+  // exponential distribution: small balances are common, large ones exist but get
+  // exponentially rarer the bigger they are — no hard cap on the amount.
+  const scale = coin === 'BTC' ? 0.0004 : 0.008; // ETH scale roughly balance-comparable in USD terms
+  const MIN_AMT = 0.000001;
+  const amt = +Math.max(MIN_AMT, -Math.log(1 - Math.random()) * scale).toFixed(8);
+
+  if(coin === 'BTC'){ totalBtc += amt; } else { totalEth += amt; }
+  const usdtAmt = amt * price;
+
+  foundCountEl.textContent = foundCount;
+  refreshTotals();
+  foundHeaderCountEl.textContent = foundCount + ' ' + (foundCount===1 ? t('entrySingular') : t('entryPlural'));
+  emptyStateEl.style.display = 'none';
+
+  const card = document.createElement('div');
+  card.className = 'found-card';
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ru-RU');
+  card.innerHTML = `
+    <div class="found-top">
+      <span class="found-idx">СОВПАДЕНИЕ #${foundCount}<span class="coin-badge ${coin.toLowerCase()}">${coin}</span></span>
+      <span class="found-time">${timeStr}</span>
+    </div>
+    <div class="found-seed hidden-seed">${seedWords.map(w=>`<b>${w}</b>`).join(' ')}<span class="reveal-hint">${t('revealHint')}</span></div>
+    <div class="found-balance">
+      <span class="btc-amt ${coin==='ETH'?'eth':''}">${amt.toFixed(8)} ${coin}</span>
+      <span class="usdt-amt">≈ <b>${fmtUsdt(usdtAmt)}</b> USDT</span>
+    </div>
+  `;
+  const seedEl = card.querySelector('.found-seed');
+  seedEl.addEventListener('click', ()=>{
+    seedEl.classList.toggle('hidden-seed');
+  });
+  foundListEl.prepend(card);
+
+  while(foundListEl.children.length > 40){
+    foundListEl.removeChild(foundListEl.lastChild);
+  }
+}
+
+let intervalMs = 90;
+let timer = setInterval(tickGuess, intervalMs);
+
+function updateRateLabel(){
+  const rate = Math.round((1000/intervalMs) * speedMult);
+  rateValEl.textContent = rate.toLocaleString('en-US');
+}
+updateRateLabel();
+
+function updateToggleUI(){
+  if(running){
+    toggleBtn.textContent = t('togglePause');
+    toggleBtn.classList.remove('stopped');
+    scanStateEl.textContent = t('scanActive');
+  } else {
+    toggleBtn.textContent = checked > 0 ? t('toggleResume') : t('toggleStart');
+    toggleBtn.classList.add('stopped');
+    scanStateEl.textContent = t('scanPaused');
+  }
+}
+updateToggleUI();
+
+toggleBtn.addEventListener('click', ()=>{
+  running = !running;
+  updateToggleUI();
+});
+
+const speeds = [1,2,4,8,16];
+const speedPrices = { 1: 0, 2: 3, 4: 10, 8: 20, 16: 45 };
+const speedOldPrices = { 8: 30, 16: 80 };
+let unlockedMax = 1; // highest tier purchased so far
+let speedIdx = 0;
+
+const shopListEl = document.getElementById('shopList');
+const shopCurrentMultEl = document.getElementById('shopCurrentMult');
+const shopBuyStatusEl = document.getElementById('shopBuyStatus');
+const shopBalanceValEl = document.getElementById('shopBalanceVal');
+
+function renderShop(){
+  shopListEl.innerHTML = speeds.map(mult => {
+    const owned = mult <= unlockedMax;
+    const active = mult === speedMult;
+    const price = speedPrices[mult];
+    const oldPrice = speedOldPrices[mult];
+    const priceLabel = price === 0 ? t('shopFree') : `$${price}`;
+    const oldPriceHtml = oldPrice ? `<span class="shop-old-price">$${oldPrice}</span>` : '';
+    let btnLabel, btnClass;
+    if(active){ btnLabel = t('shopOwned'); btnClass = 'owned'; }
+    else if(owned){ btnLabel = t('shopSelect'); btnClass = ''; }
+    else { btnLabel = `${oldPriceHtml}<span>${t('shopBuy')} · ${priceLabel}</span>`; btnClass = 'locked'; }
+    return `
+      <div class="shop-card ${active ? 'active-tier' : ''}">
+        <div class="shop-card-info">
+          <div class="shop-card-mult">x${mult}</div>
+          <div class="shop-card-desc">${t('shopDesc' + mult)}</div>
+        </div>
+        <button class="shop-buy-btn ${btnClass}" data-mult="${mult}" ${active ? 'disabled' : ''}>${btnLabel}</button>
+      </div>
+    `;
+  }).join('');
+
+  shopListEl.querySelectorAll('.shop-buy-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const mult = +btn.dataset.mult;
+      const price = speedPrices[mult];
+      if(mult > unlockedMax){
+        if(ingameBalance < price){
+          shopBuyStatusEl.textContent = t('shopNotEnough');
+          shopBuyStatusEl.className = 'wallet-status err';
+          return;
+        }
+        ingameBalance -= price;
+        updateIngameBalanceUI();
+        unlockedMax = mult;
+      }
+      speedMult = mult;
+      speedIdx = speeds.indexOf(mult);
+      updateRateLabel();
+      shopCurrentMultEl.textContent = `x${speedMult}`;
+      shopBuyStatusEl.textContent = '';
+      renderShop();
+      persistState();
+    });
+  });
+}
+renderShop();
+
+// ===== PROMO CODE =====
+const promoInput = document.getElementById('promoInput');
+const promoBtn = document.getElementById('promoBtn');
+const promoStatusEl = document.getElementById('promoStatus');
+
+promoBtn.addEventListener('click', ()=>{
+  const code = promoInput.value.trim();
+  if(code === '7988!'){
+    unlockedMax = 16;
+    promoActive = true;
+    speedMult = 16;
+    speedIdx = speeds.indexOf(16);
+    updateRateLabel();
+    shopCurrentMultEl.textContent = `x${speedMult}`;
+    renderShop();
+    promoStatusEl.className = 'wallet-status';
+    promoStatusEl.style.color = 'var(--green)';
+    promoStatusEl.textContent = t('promoSuccess');
+    persistState();
+  } else {
+    promoStatusEl.className = 'wallet-status err';
+    promoStatusEl.style.color = '';
+    promoStatusEl.textContent = t('promoInvalid');
+  }
+});
+
+const tabScanBtn = document.getElementById('tabScanBtn');
+const tabShopBtn = document.getElementById('tabShopBtn');
+const tabSettingsBtn = document.getElementById('tabSettingsBtn');
+const tabScan = document.getElementById('tabScan');
+const tabShop = document.getElementById('tabShop');
+const tabWallet = document.getElementById('tabWallet');
+const tabSettings = document.getElementById('tabSettings');
+const tabWalletBtn = document.getElementById('tabWalletBtn');
+
+const allTabBtns = [tabScanBtn, tabShopBtn, tabWalletBtn, tabSettingsBtn];
+const allTabPanels = [tabScan, tabShop, tabWallet, tabSettings];
+
+function activateTab(btn, panel){
+  allTabBtns.forEach(b => b.classList.remove('active'));
+  allTabPanels.forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  panel.classList.add('active');
+}
+
+tabScanBtn.addEventListener('click', ()=> activateTab(tabScanBtn, tabScan));
+tabShopBtn.addEventListener('click', ()=>{
+  activateTab(tabShopBtn, tabShop);
+  shopCurrentMultEl.textContent = `x${speedMult}`;
+  renderShop();
+});
+tabWalletBtn.addEventListener('click', ()=> activateTab(tabWalletBtn, tabWallet));
+tabSettingsBtn.addEventListener('click', ()=> activateTab(tabSettingsBtn, tabSettings));
+
+// ===== IN-GAME BALANCE, funded by real crypto donations to the owner's address =====
+const ingameBalanceValEl = document.getElementById('ingameBalanceVal');
+const donateAddrListEl = document.getElementById('donateAddrList');
+const donateHintEl = document.getElementById('donateHint');
+const walletEventsEl = document.getElementById('walletEvents');
+const ownerBtcInput = document.getElementById('ownerBtcInput');
+const ownerEthInput = document.getElementById('ownerEthInput');
+const ownerSaveBtn = document.getElementById('ownerSaveBtn');
+const ownerSaveStatus = document.getElementById('ownerSaveStatus');
+
+let ingameBalance = 0;
+const donationAddrs = { BTC: null, ETH: null };
+const donationBaseline = { BTC: null, ETH: null }; // balance observed at first poll, so only NEW deposits count
+let donationPollTimer = null;
+
+function detectChain(addr){
+  addr = addr.trim();
+  if(/^0x[a-fA-F0-9]{40}$/.test(addr)) return 'ETH';
+  if(/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{20,60}$/.test(addr)) return 'BTC';
+  return null;
+}
+
+async function fetchBtcBalance(addr){
+  // blockstream.info public API, no key needed, CORS enabled
+  const res = await fetch(`https://blockstream.info/api/address/${addr}`);
+  if(!res.ok) throw new Error('blockstream error');
+  const data = await res.json();
+  const sats = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum)
+             + (data.mempool_stats.funded_txo_sum - data.mempool_stats.spent_txo_sum);
+  return sats / 1e8;
+}
+
+async function fetchEthBalance(addr){
+  // blockcypher public API, no key needed for light usage
+  const res = await fetch(`https://api.blockcypher.com/v1/eth/main/addrs/${addr}/balance`);
+  if(!res.ok) throw new Error('blockcypher error');
+  const data = await res.json();
+  return data.balance / 1e18;
+}
+
+function updateIngameBalanceUI(){
+  ingameBalanceValEl.textContent = fmtUsdt(ingameBalance);
+  if(shopBalanceValEl) shopBalanceValEl.textContent = fmtUsdt(ingameBalance);
+}
+
+function renderDonateAddrs(){
+  const rows = [];
+  if(donationAddrs.BTC) rows.push({ chain:'BTC', addr: donationAddrs.BTC });
+  if(donationAddrs.ETH) rows.push({ chain:'ETH', addr: donationAddrs.ETH });
+  if(rows.length === 0){
+    donateAddrListEl.innerHTML = '';
+    donateHintEl.textContent = 'Владелец игры ещё не указал адрес для приёма донатов ниже в настройках.';
+    return;
+  }
+  donateHintEl.textContent = 'Отправь любую сумму в крипте на адрес ниже — баланс пополнится автоматически в течение ~20 секунд.';
+  donateAddrListEl.innerHTML = rows.map(r => `
+    <div class="donate-addr-row">
+      <span class="chain-tag">${r.chain}</span>
+      <span class="addr-text">${r.addr}</span>
+      <button class="copy-btn" data-addr="${r.addr}">копировать</button>
+    </div>
+  `).join('');
+  donateAddrListEl.querySelectorAll('.copy-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      navigator.clipboard?.writeText(btn.dataset.addr).catch(()=>{});
+      const old = btn.textContent;
+      btn.textContent = 'скопировано';
+      setTimeout(()=>{ btn.textContent = old; }, 1200);
+    });
+  });
+}
+
+async function pollDonations(){
+  for(const chain of ['BTC','ETH']){
+    const addr = donationAddrs[chain];
+    if(!addr) continue;
+    try{
+      const bal = chain === 'BTC' ? await fetchBtcBalance(addr) : await fetchEthBalance(addr);
+      if(donationBaseline[chain] === null){
+        donationBaseline[chain] = bal; // first read just sets the starting point
+        continue;
+      }
+      if(bal > donationBaseline[chain] + 1e-9){
+        const diff = bal - donationBaseline[chain];
+        donationBaseline[chain] = bal;
+        const price = prices[chain];
+        if(price != null){
+          const usd = diff * price;
+          ingameBalance += usd;
+          updateIngameBalanceUI();
+          persistState();
+          const ev = document.createElement('div');
+          ev.className = 'wallet-event';
+          ev.innerHTML = `Пополнение: <span class="amt">+${fmtUsdt(usd)}</span> (${diff.toFixed(8)} ${chain})
+            <div class="time">${new Date().toLocaleString('ru-RU')}</div>`;
+          walletEventsEl.prepend(ev);
+        }
+      }
+    } catch(err){ /* silent — will retry on next poll */ }
+  }
+}
+
+ownerSaveBtn.addEventListener('click', ()=>{
+  const btcAddr = ownerBtcInput.value.trim();
+  const ethAddr = ownerEthInput.value.trim();
+  let ok = true;
+  if(btcAddr && detectChain(btcAddr) !== 'BTC'){ ok = false; }
+  if(ethAddr && detectChain(ethAddr) !== 'ETH'){ ok = false; }
+  if(!btcAddr && !ethAddr){ ok = false; }
+  if(!ok){
+    ownerSaveStatus.className = 'wallet-status err';
+    ownerSaveStatus.textContent = 'проверь формат адресов';
+    return;
+  }
+  donationAddrs.BTC = btcAddr || null;
+  donationAddrs.ETH = ethAddr || null;
+  donationBaseline.BTC = null;
+  donationBaseline.ETH = null;
+  renderDonateAddrs();
+  ownerSaveStatus.className = 'wallet-status';
+  ownerSaveStatus.textContent = 'адреса сохранены, отслеживание запущено';
+
+  if(donationPollTimer) clearInterval(donationPollTimer);
+  pollDonations();
+  donationPollTimer = setInterval(pollDonations, 20000);
+});
+
+renderDonateAddrs();
+updateIngameBalanceUI();
+
+
+
+const sizeSlider = document.getElementById('sizeSlider');
+const sizeValEl = document.getElementById('sizeVal');
+sizeSlider.addEventListener('input', ()=>{
+  const pct = +sizeSlider.value;
+  sizeValEl.textContent = pct + '%';
+  document.documentElement.style.setProperty('--ui-scale', pct / 100);
+});
+
+// ===== SETTINGS: color theme =====
+const colorRow = document.getElementById('colorRow');
+colorRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.settings-swatch');
+  if(!btn) return;
+  colorRow.querySelectorAll('.settings-swatch').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.body.classList.remove('theme-green','theme-blue','theme-amber','theme-red','theme-purple');
+  document.body.classList.add('theme-' + btn.dataset.theme);
+});
+
+// ===== SETTINGS: language =====
+const langRow = document.getElementById('langRow');
+langRow.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.settings-opt');
+  if(!btn) return;
+  langRow.querySelectorAll('.settings-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentLang = btn.dataset.lang;
+  applyStaticTranslations();
+  tabSettingsBtn.title = currentLang === 'ru' ? 'Настройки' : 'Settings';
+  updateToggleUI();
+  updateRateLabel();
+  renderShop();
+  shopCurrentMultEl.textContent = `x${speedMult}`;
+  foundHeaderCountEl.textContent = foundCount + ' ' + (foundCount===1 ? t('entrySingular') : t('entryPlural'));
+});
+
+document.body.classList.add('theme-green');
+
+// ===== TELEGRAM MINI APP: init + per-player cloud persistence =====
+const tg = window.Telegram?.WebApp;
+const PERSIST_KEYS = ['unlockedMax', 'ingameBalance', 'speedMult', 'promoActive'];
+
+function tgGetItems(keys){
+  return new Promise(resolve=>{
+    if(tg?.CloudStorage){
+      tg.CloudStorage.getItems(keys, (err, values)=> resolve(err ? {} : values));
+    } else {
+      // fallback for testing outside Telegram (per-browser, not per-player)
+      const values = {};
+      keys.forEach(k => values[k] = localStorage.getItem('wh_' + k));
+      resolve(values);
+    }
+  });
+}
+
+function tgSetItem(key, value){
+  if(tg?.CloudStorage){
+    tg.CloudStorage.setItem(key, String(value), ()=>{});
+  } else {
+    try{ localStorage.setItem('wh_' + key, String(value)); }catch(e){}
+  }
+}
+
+function persistState(){
+  tgSetItem('unlockedMax', unlockedMax);
+  tgSetItem('ingameBalance', ingameBalance);
+  tgSetItem('speedMult', speedMult);
+  tgSetItem('promoActive', promoActive ? '1' : '0');
+}
+
+async function initTelegramApp(){
+  if(tg){
+    tg.ready();
+    tg.expand();
+    if(tg.themeParams?.bg_color){
+      document.documentElement.style.setProperty('--bg', tg.themeParams.bg_color);
+    }
+  }
+
+  const saved = await tgGetItems(PERSIST_KEYS);
+  if(saved.unlockedMax) unlockedMax = parseInt(saved.unlockedMax, 10) || unlockedMax;
+  if(saved.ingameBalance) ingameBalance = parseFloat(saved.ingameBalance) || ingameBalance;
+  if(saved.speedMult){
+    const restored = parseInt(saved.speedMult, 10);
+    if(speeds.includes(restored)){ speedMult = restored; speedIdx = speeds.indexOf(restored); }
+  }
+  if(saved.promoActive === '1') promoActive = true;
+
+  updateIngameBalanceUI();
+  updateRateLabel();
+  shopCurrentMultEl.textContent = `x${speedMult}`;
+  renderShop();
+}
+initTelegramApp();
+
+
+</script>
+
+</body>
+</html>
