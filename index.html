@@ -818,6 +818,7 @@
         <button id="topupPayBtn" class="wallet-track-btn">Оплатить</button>
       </div>
       <div class="wallet-status" id="topupStatus"></div>
+      <a id="topupPayLink" href="#" target="_blank" rel="noopener" class="wallet-track-btn" style="display:none; width:100%; text-align:center; margin-top:8px; text-decoration:none; box-sizing:border-box;">Открыть счёт для оплаты →</a>
     </div>
 
     <div id="donateBlock" style="display:none">
@@ -1386,6 +1387,7 @@ const topupAmountRow = document.getElementById('topupAmountRow');
 const topupCustomInput = document.getElementById('topupCustomInput');
 const topupPayBtn = document.getElementById('topupPayBtn');
 const topupStatusEl = document.getElementById('topupStatus');
+const topupPayLink = document.getElementById('topupPayLink');
 
 let ingameBalance = 0;
 let selectedTopupAmt = null;
@@ -1421,6 +1423,7 @@ async function pollInvoice(invoiceId, amount){
     }
     if(data.status === 'paid'){
       clearInterval(topupPollTimer);
+      topupPayLink.style.display = 'none';
       ingameBalance += amount;
       updateIngameBalanceUI();
       persistState();
@@ -1434,6 +1437,7 @@ async function pollInvoice(invoiceId, amount){
       walletEventsEl.prepend(ev);
     } else if(data.status === 'expired'){
       clearInterval(topupPollTimer);
+      topupPayLink.style.display = 'none';
       topupStatusEl.className = 'wallet-status err';
       topupStatusEl.textContent = 'Счёт истёк. Попробуй снова.';
     }
@@ -1479,7 +1483,9 @@ topupPayBtn.addEventListener('click', async ()=>{
       return;
     }
 
-    // открываем счёт на оплату
+    // открываем счёт на оплату — а ссылку оставляем видимой на случай,
+    // если авто-открытие не сработает (ограничения Telegram на переход
+    // из одного мини-приложения в другое)
     if(tg?.openTelegramLink && data.pay_url.includes('t.me')){
       tg.openTelegramLink(data.pay_url);
     } else if(tg?.openLink){
@@ -1487,8 +1493,10 @@ topupPayBtn.addEventListener('click', async ()=>{
     } else {
       window.open(data.pay_url, '_blank');
     }
+    topupPayLink.href = data.pay_url;
+    topupPayLink.style.display = 'block';
 
-    topupStatusEl.textContent = 'Ожидаем оплату… (можно вернуться в игру после оплаты)';
+    topupStatusEl.textContent = 'Ожидаем оплату… Если счёт не открылся сам — нажми кнопку ниже.';
     if(topupPollTimer) clearInterval(topupPollTimer);
     topupPollTimer = setInterval(()=> pollInvoice(data.invoice_id, amount), 4000);
   } catch(err){
