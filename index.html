@@ -30,7 +30,8 @@
     min-height: 100vh;
     display:flex;
     justify-content:center;
-    padding: 24px 14px 60px;
+    padding: calc(24px + var(--safe-top, 0px)) 14px 60px;
+    overflow-x: hidden;
     background-image:
       radial-gradient(circle at 15% 10%, rgba(57,255,138,0.05), transparent 40%),
       radial-gradient(circle at 85% 90%, rgba(255,176,32,0.04), transparent 40%);
@@ -39,7 +40,8 @@
   .app{
     width: 100%;
     max-width: 560px;
-    zoom: var(--ui-scale, 1);
+    transform: scale(var(--ui-scale, 1));
+    transform-origin: top center;
   }
 
   body.theme-blue{ --green: #3aa8ff; --green-dim: #1f6f99; }
@@ -803,23 +805,23 @@
       <div class="wallet-balance-val" id="ingameBalanceVal">$0.00</div>
     </div>
 
-    <div id="donateBlock" style="display:none">
-      <div class="settings-label" style="margin-top:20px;">Пополнить донатом</div>
-      <div id="donateAddrList" class="donate-addr-list"></div>
-      <div class="wallet-status" id="donateHint">Отправь любую сумму в крипте на указанный адрес — баланс пополнится автоматически.</div>
-      <div id="walletEvents" class="wallet-events"></div>
+    <div id="topupBlock" style="margin-top:20px;">
+      <div class="settings-label">Пополнить через CryptoBot</div>
+      <div class="settings-row" id="topupAmountRow">
+        <button class="settings-opt topup-amt" data-amt="5">$5</button>
+        <button class="settings-opt topup-amt" data-amt="10">$10</button>
+        <button class="settings-opt topup-amt" data-amt="20">$20</button>
+        <button class="settings-opt topup-amt" data-amt="50">$50</button>
+      </div>
+      <div class="wallet-input-row" style="margin-top:8px;">
+        <input type="number" id="topupCustomInput" class="wallet-input" placeholder="Своя сумма, $" min="1">
+        <button id="topupPayBtn" class="wallet-track-btn">Оплатить</button>
+      </div>
+      <div class="wallet-status" id="topupStatus"></div>
     </div>
 
-    <div class="settings-group" style="margin-top:26px; border-top:1px solid var(--line); padding-top:18px; display:none">
-      <div class="settings-label">Настройка адресов для приёма донатов (для владельца игры)</div>
-      <div class="wallet-input-row">
-        <input type="text" id="ownerBtcInput" class="wallet-input" placeholder="Твой BTC адрес (необязательно)">
-      </div>
-      <div class="wallet-input-row">
-        <input type="text" id="ownerEthInput" class="wallet-input" placeholder="Твой ETH адрес (необязательно)">
-      </div>
-      <button id="ownerSaveBtn" class="wallet-track-btn" style="width:100%;">Сохранить адреса</button>
-      <div class="wallet-status" id="ownerSaveStatus"></div>
+    <div id="donateBlock" style="display:none">
+      <div id="walletEvents" class="wallet-events"></div>
     </div>
   </div>
 
@@ -1371,134 +1373,131 @@ tabShopBtn.addEventListener('click', ()=>{
 tabWalletBtn.addEventListener('click', ()=> activateTab(tabWalletBtn, tabWallet));
 tabSettingsBtn.addEventListener('click', ()=> activateTab(tabSettingsBtn, tabSettings));
 
-// ===== IN-GAME BALANCE, funded by real crypto donations to the owner's address =====
+// ===== IN-GAME BALANCE, funded via CryptoBot (Crypto Pay API) =====
+//
+// Поставь сюда URL своего Cloudflare Worker (см. worker/cryptobot-worker.js).
+// Пока это placeholder — кнопка "Оплатить" будет показывать ошибку настройки,
+// пока сюда не вставлен настоящий адрес воркера.
+const CRYPTOBOT_WORKER_URL = 'https://whunter.96gmm7vtjf.workers.dev';
+
 const ingameBalanceValEl = document.getElementById('ingameBalanceVal');
-const donateAddrListEl = document.getElementById('donateAddrList');
-const donateHintEl = document.getElementById('donateHint');
 const walletEventsEl = document.getElementById('walletEvents');
-const ownerBtcInput = document.getElementById('ownerBtcInput');
-const ownerEthInput = document.getElementById('ownerEthInput');
-const ownerSaveBtn = document.getElementById('ownerSaveBtn');
-const ownerSaveStatus = document.getElementById('ownerSaveStatus');
+const topupAmountRow = document.getElementById('topupAmountRow');
+const topupCustomInput = document.getElementById('topupCustomInput');
+const topupPayBtn = document.getElementById('topupPayBtn');
+const topupStatusEl = document.getElementById('topupStatus');
 
 let ingameBalance = 0;
-const donationAddrs = { BTC: null, ETH: null };
-const donationBaseline = { BTC: null, ETH: null }; // balance observed at first poll, so only NEW deposits count
-let donationPollTimer = null;
-
-function detectChain(addr){
-  addr = addr.trim();
-  if(/^0x[a-fA-F0-9]{40}$/.test(addr)) return 'ETH';
-  if(/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{20,60}$/.test(addr)) return 'BTC';
-  return null;
-}
-
-async function fetchBtcBalance(addr){
-  // blockstream.info public API, no key needed, CORS enabled
-  const res = await fetch(`https://blockstream.info/api/address/${addr}`);
-  if(!res.ok) throw new Error('blockstream error');
-  const data = await res.json();
-  const sats = (data.chain_stats.funded_txo_sum - data.chain_stats.spent_txo_sum)
-             + (data.mempool_stats.funded_txo_sum - data.mempool_stats.spent_txo_sum);
-  return sats / 1e8;
-}
-
-async function fetchEthBalance(addr){
-  // blockcypher public API, no key needed for light usage
-  const res = await fetch(`https://api.blockcypher.com/v1/eth/main/addrs/${addr}/balance`);
-  if(!res.ok) throw new Error('blockcypher error');
-  const data = await res.json();
-  return data.balance / 1e18;
-}
+let selectedTopupAmt = null;
+let topupPollTimer = null;
 
 function updateIngameBalanceUI(){
   ingameBalanceValEl.textContent = fmtUsdt(ingameBalance);
   if(shopBalanceValEl) shopBalanceValEl.textContent = fmtUsdt(ingameBalance);
 }
 
-function renderDonateAddrs(){
-  const rows = [];
-  if(donationAddrs.BTC) rows.push({ chain:'BTC', addr: donationAddrs.BTC });
-  if(donationAddrs.ETH) rows.push({ chain:'ETH', addr: donationAddrs.ETH });
-  if(rows.length === 0){
-    donateAddrListEl.innerHTML = '';
-    donateHintEl.textContent = 'Владелец игры ещё не указал адрес для приёма донатов ниже в настройках.';
-    return;
-  }
-  donateHintEl.textContent = 'Отправь любую сумму в крипте на адрес ниже — баланс пополнится автоматически в течение ~20 секунд.';
-  donateAddrListEl.innerHTML = rows.map(r => `
-    <div class="donate-addr-row">
-      <span class="chain-tag">${r.chain}</span>
-      <span class="addr-text">${r.addr}</span>
-      <button class="copy-btn" data-addr="${r.addr}">копировать</button>
-    </div>
-  `).join('');
-  donateAddrListEl.querySelectorAll('.copy-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      navigator.clipboard?.writeText(btn.dataset.addr).catch(()=>{});
-      const old = btn.textContent;
-      btn.textContent = 'скопировано';
-      setTimeout(()=>{ btn.textContent = old; }, 1200);
-    });
+topupAmountRow.querySelectorAll('.topup-amt').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    topupAmountRow.querySelectorAll('.topup-amt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedTopupAmt = +btn.dataset.amt;
+    topupCustomInput.value = '';
   });
-}
-
-async function pollDonations(){
-  for(const chain of ['BTC','ETH']){
-    const addr = donationAddrs[chain];
-    if(!addr) continue;
-    try{
-      const bal = chain === 'BTC' ? await fetchBtcBalance(addr) : await fetchEthBalance(addr);
-      if(donationBaseline[chain] === null){
-        donationBaseline[chain] = bal; // first read just sets the starting point
-        continue;
-      }
-      if(bal > donationBaseline[chain] + 1e-9){
-        const diff = bal - donationBaseline[chain];
-        donationBaseline[chain] = bal;
-        const price = prices[chain];
-        if(price != null){
-          const usd = diff * price;
-          ingameBalance += usd;
-          updateIngameBalanceUI();
-          persistState();
-          const ev = document.createElement('div');
-          ev.className = 'wallet-event';
-          ev.innerHTML = `Пополнение: <span class="amt">+${fmtUsdt(usd)}</span> (${diff.toFixed(8)} ${chain})
-            <div class="time">${new Date().toLocaleString('ru-RU')}</div>`;
-          walletEventsEl.prepend(ev);
-        }
-      }
-    } catch(err){ /* silent — will retry on next poll */ }
-  }
-}
-
-ownerSaveBtn.addEventListener('click', ()=>{
-  const btcAddr = ownerBtcInput.value.trim();
-  const ethAddr = ownerEthInput.value.trim();
-  let ok = true;
-  if(btcAddr && detectChain(btcAddr) !== 'BTC'){ ok = false; }
-  if(ethAddr && detectChain(ethAddr) !== 'ETH'){ ok = false; }
-  if(!btcAddr && !ethAddr){ ok = false; }
-  if(!ok){
-    ownerSaveStatus.className = 'wallet-status err';
-    ownerSaveStatus.textContent = 'проверь формат адресов';
-    return;
-  }
-  donationAddrs.BTC = btcAddr || null;
-  donationAddrs.ETH = ethAddr || null;
-  donationBaseline.BTC = null;
-  donationBaseline.ETH = null;
-  renderDonateAddrs();
-  ownerSaveStatus.className = 'wallet-status';
-  ownerSaveStatus.textContent = 'адреса сохранены, отслеживание запущено';
-
-  if(donationPollTimer) clearInterval(donationPollTimer);
-  pollDonations();
-  donationPollTimer = setInterval(pollDonations, 20000);
+});
+topupCustomInput.addEventListener('input', ()=>{
+  topupAmountRow.querySelectorAll('.topup-amt').forEach(b => b.classList.remove('active'));
+  selectedTopupAmt = null;
 });
 
-renderDonateAddrs();
+async function pollInvoice(invoiceId, amount){
+  try{
+    const res = await fetch(`${CRYPTOBOT_WORKER_URL}/check-invoice?id=${invoiceId}`);
+    const data = await res.json();
+    if(!data.ok){
+      topupStatusEl.className = 'wallet-status err';
+      topupStatusEl.textContent = 'Ошибка проверки платежа. Попробуй ещё раз.';
+      clearInterval(topupPollTimer);
+      return;
+    }
+    if(data.status === 'paid'){
+      clearInterval(topupPollTimer);
+      ingameBalance += amount;
+      updateIngameBalanceUI();
+      persistState();
+      topupStatusEl.className = 'wallet-status';
+      topupStatusEl.style.color = 'var(--green)';
+      topupStatusEl.textContent = `Оплачено! Баланс пополнен на $${amount.toFixed(2)}.`;
+      const ev = document.createElement('div');
+      ev.className = 'wallet-event';
+      ev.innerHTML = `Пополнение: <span class="amt">+$${amount.toFixed(2)}</span>
+        <div class="time">${new Date().toLocaleString('ru-RU')}</div>`;
+      walletEventsEl.prepend(ev);
+    } else if(data.status === 'expired'){
+      clearInterval(topupPollTimer);
+      topupStatusEl.className = 'wallet-status err';
+      topupStatusEl.textContent = 'Счёт истёк. Попробуй снова.';
+    }
+    // status === 'active' — просто ждём, следующий опрос через интервал
+  } catch(err){
+    // сетевая ошибка — тихо пробуем на следующем опросе
+  }
+}
+
+topupPayBtn.addEventListener('click', async ()=>{
+  const customVal = parseFloat(topupCustomInput.value);
+  const amount = selectedTopupAmt || (customVal > 0 ? customVal : null);
+
+  if(!amount){
+    topupStatusEl.className = 'wallet-status err';
+    topupStatusEl.style.color = '';
+    topupStatusEl.textContent = 'Выбери сумму или введи свою.';
+    return;
+  }
+  if(CRYPTOBOT_WORKER_URL.includes('ВСТАВЬ-СЮДА')){
+    topupStatusEl.className = 'wallet-status err';
+    topupStatusEl.style.color = '';
+    topupStatusEl.textContent = 'Оплата ещё не настроена: не указан адрес Worker\'а (см. worker/cryptobot-worker.js).';
+    return;
+  }
+
+  topupStatusEl.className = 'wallet-status';
+  topupStatusEl.style.color = '';
+  topupStatusEl.textContent = 'Создаём счёт…';
+  topupPayBtn.disabled = true;
+
+  try{
+    const res = await fetch(`${CRYPTOBOT_WORKER_URL}/create-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, asset: 'USDT' }),
+    });
+    const data = await res.json();
+    topupPayBtn.disabled = false;
+    if(!data.ok){
+      topupStatusEl.className = 'wallet-status err';
+      topupStatusEl.textContent = 'Не удалось создать счёт. Попробуй позже.';
+      return;
+    }
+
+    // открываем счёт на оплату
+    if(tg?.openTelegramLink && data.pay_url.includes('t.me')){
+      tg.openTelegramLink(data.pay_url);
+    } else if(tg?.openLink){
+      tg.openLink(data.pay_url);
+    } else {
+      window.open(data.pay_url, '_blank');
+    }
+
+    topupStatusEl.textContent = 'Ожидаем оплату… (можно вернуться в игру после оплаты)';
+    if(topupPollTimer) clearInterval(topupPollTimer);
+    topupPollTimer = setInterval(()=> pollInvoice(data.invoice_id, amount), 4000);
+  } catch(err){
+    topupPayBtn.disabled = false;
+    topupStatusEl.className = 'wallet-status err';
+    topupStatusEl.textContent = 'Ошибка сети. Проверь подключение и повтори.';
+  }
+});
+
 updateIngameBalanceUI();
 
 
@@ -1573,6 +1572,18 @@ function persistState(){
   tgSetItem('promoActive', promoActive ? '1' : '0');
 }
 
+function applySafeAreaTop(){
+  if(!tg) return;
+  // Bot API 8.0+: exact inset that accounts for Telegram's own floating header
+  // (close button, title, menu) which stays on top of the WebView in fullscreen mode.
+  const inset = tg.contentSafeAreaInset?.top ?? tg.safeAreaInset?.top ?? 0;
+  // Older clients or missing data: fall back to a safe fixed buffer while fullscreen,
+  // since that's specifically when Telegram's header overlaps our content.
+  const fallback = tg.isFullscreen ? 56 : 0;
+  const top = Math.max(inset, fallback);
+  document.documentElement.style.setProperty('--safe-top', top + 'px');
+}
+
 async function initTelegramApp(){
   if(tg){
     tg.ready();
@@ -1581,6 +1592,12 @@ async function initTelegramApp(){
     // this app has its own fixed dark aesthetic, it shouldn't follow light mode
     tg.setBackgroundColor?.('#05070a');
     tg.setHeaderColor?.('#05070a');
+
+    applySafeAreaTop();
+    tg.onEvent?.('safeAreaChanged', applySafeAreaTop);
+    tg.onEvent?.('contentSafeAreaChanged', applySafeAreaTop);
+    tg.onEvent?.('fullscreenChanged', applySafeAreaTop);
+    tg.onEvent?.('viewportChanged', applySafeAreaTop);
   }
 
   const saved = await tgGetItems(PERSIST_KEYS);
