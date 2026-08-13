@@ -1479,7 +1479,7 @@ topupPayBtn.addEventListener('click', async ()=>{
     topupPayBtn.disabled = false;
     if(!data.ok){
       topupStatusEl.className = 'wallet-status err';
-      topupStatusEl.textContent = 'Не удалось создать счёт. Попробуй позже.';
+      topupStatusEl.textContent = 'Не удалось создать счёт: ' + (data.error || 'неизвестная ошибка') + '.';
       return;
     }
 
@@ -1583,12 +1583,13 @@ function persistState(){
 function applySafeAreaTop(){
   if(!tg) return;
   // Bot API 8.0+: exact inset that accounts for Telegram's own floating header
-  // (close button, title, menu) which stays on top of the WebView in fullscreen mode.
+  // (close button, title, menu) which stays on top of the WebView.
   const inset = tg.contentSafeAreaInset?.top ?? tg.safeAreaInset?.top ?? 0;
-  // Older clients or missing data: fall back to a safe fixed buffer while fullscreen,
-  // since that's specifically when Telegram's header overlaps our content.
-  const fallback = tg.isFullscreen ? 56 : 0;
-  const top = Math.max(inset, fallback);
+  // Older Telegram clients don't expose that value at all (stays 0), but Telegram's
+  // own floating header still overlaps our content regardless of detected fullscreen
+  // state — so always keep a safe minimum buffer whenever we're inside Telegram,
+  // rather than trusting isFullscreen detection which isn't reliably available.
+  const top = Math.max(inset, 64);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
