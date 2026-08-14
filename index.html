@@ -1608,16 +1608,6 @@ async function initTelegramApp(){
     tg.onEvent?.('contentSafeAreaChanged', applySafeAreaTop);
     tg.onEvent?.('fullscreenChanged', applySafeAreaTop);
     tg.onEvent?.('viewportChanged', applySafeAreaTop);
-
-    // slightly shrink the whole interface by default inside Telegram, so there's
-    // more breathing room under Telegram's own floating header — plain browser
-    // preview keeps the normal 100% default.
-    const defaultTgScale = 85;
-    document.documentElement.style.setProperty('--ui-scale', defaultTgScale / 100);
-    const sizeSliderEl = document.getElementById('sizeSlider');
-    const sizeValEl2 = document.getElementById('sizeVal');
-    if(sizeSliderEl){ sizeSliderEl.value = defaultTgScale; }
-    if(sizeValEl2){ sizeValEl2.textContent = defaultTgScale + '%'; }
   }
 
   const saved = await tgGetItems(PERSIST_KEYS);
