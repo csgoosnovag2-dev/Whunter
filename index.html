@@ -1589,7 +1589,7 @@ function applySafeAreaTop(){
   // own floating header still overlaps our content regardless of detected fullscreen
   // state — so always keep a safe minimum buffer whenever we're inside Telegram,
   // rather than trusting isFullscreen detection which isn't reliably available.
-  const top = Math.max(inset, 96);
+  const top = Math.max(inset, 140);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
@@ -1607,6 +1607,16 @@ async function initTelegramApp(){
     tg.onEvent?.('contentSafeAreaChanged', applySafeAreaTop);
     tg.onEvent?.('fullscreenChanged', applySafeAreaTop);
     tg.onEvent?.('viewportChanged', applySafeAreaTop);
+
+    // slightly shrink the whole interface by default inside Telegram, so there's
+    // more breathing room under Telegram's own floating header — plain browser
+    // preview keeps the normal 100% default.
+    const defaultTgScale = 85;
+    document.documentElement.style.setProperty('--ui-scale', defaultTgScale / 100);
+    const sizeSliderEl = document.getElementById('sizeSlider');
+    const sizeValEl2 = document.getElementById('sizeVal');
+    if(sizeSliderEl){ sizeSliderEl.value = defaultTgScale; }
+    if(sizeValEl2){ sizeValEl2.textContent = defaultTgScale + '%'; }
   }
 
   const saved = await tgGetItems(PERSIST_KEYS);
