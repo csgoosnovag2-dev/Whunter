@@ -37,9 +37,13 @@
       radial-gradient(circle at 85% 90%, rgba(255,176,32,0.04), transparent 40%);
   }
 
-  .app{
+  .app-outer{
     width: 100%;
     max-width: 560px;
+    overflow: hidden;
+  }
+  .app{
+    width: 100%;
     transform: scale(var(--ui-scale, 1));
     transform-origin: top center;
   }
@@ -719,6 +723,7 @@
 </head>
 <body style="background:#05070a">
 
+<div class="app-outer">
 <div class="app">
 
   <div class="tabs">
@@ -859,6 +864,7 @@
     </div>
   </div>
 
+</div>
 </div>
 
 <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
@@ -1512,10 +1518,29 @@ updateIngameBalanceUI();
 
 const sizeSlider = document.getElementById('sizeSlider');
 const sizeValEl = document.getElementById('sizeVal');
+
+// transform:scale() shrinks the .app visually but doesn't affect its layout box,
+// so without this the page keeps the old (unscaled) height — leaving a dead
+// scrollable gap and janky-feeling scroll. Keep .app-outer's real height in sync
+// with the *scaled* content height instead.
+const appEl = document.querySelector('.app');
+const appOuterEl = document.querySelector('.app-outer');
+function currentUiScale(){
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--ui-scale');
+  const n = parseFloat(raw);
+  return isNaN(n) ? 1 : n;
+}
+function syncAppOuterHeight(){
+  appOuterEl.style.height = (appEl.scrollHeight * currentUiScale()) + 'px';
+}
+new ResizeObserver(syncAppOuterHeight).observe(appEl);
+syncAppOuterHeight();
+
 sizeSlider.addEventListener('input', ()=>{
   const pct = +sizeSlider.value;
   sizeValEl.textContent = pct + '%';
   document.documentElement.style.setProperty('--ui-scale', pct / 100);
+  syncAppOuterHeight();
 });
 
 // ===== SETTINGS: color theme =====
@@ -1589,7 +1614,7 @@ function applySafeAreaTop(){
   // own floating header still overlaps our content regardless of detected fullscreen
   // state — so always keep a safe minimum buffer whenever we're inside Telegram,
   // rather than trusting isFullscreen detection which isn't reliably available.
-  const top = Math.max(inset, 140);
+  const top = Math.max(inset, 200);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
@@ -1617,6 +1642,7 @@ async function initTelegramApp(){
     const sizeValEl2 = document.getElementById('sizeVal');
     if(sizeSliderEl){ sizeSliderEl.value = defaultTgScale; }
     if(sizeValEl2){ sizeValEl2.textContent = defaultTgScale + '%'; }
+    syncAppOuterHeight?.();
   }
 
   const saved = await tgGetItems(PERSIST_KEYS);
