@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#05070a">
 <title>WALLET HUNTER — симулятор перебора</title>
 <style>
@@ -30,7 +30,7 @@
     min-height: 100vh;
     display:flex;
     justify-content:center;
-    padding: calc(24px + var(--safe-top, 0px)) 14px 60px;
+    padding: calc(24px + env(safe-area-inset-top, 0px) + var(--safe-top, 0px)) 14px 60px;
     overflow-x: hidden;
     background-image:
       radial-gradient(circle at 15% 10%, rgba(57,255,138,0.05), transparent 40%),
@@ -1589,7 +1589,7 @@ function applySafeAreaTop(){
   // own floating header still overlaps our content regardless of detected fullscreen
   // state — so always keep a safe minimum buffer whenever we're inside Telegram,
   // rather than trusting isFullscreen detection which isn't reliably available.
-  const top = Math.max(inset, 64);
+  const top = Math.max(inset, 96);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
