@@ -1588,7 +1588,7 @@ function applySafeAreaTop(){
   // under Telegram's own floating header whenever we're inside Telegram at all.
   const systemInset = tg.safeAreaInset?.top ?? 0;
   const contentInset = tg.contentSafeAreaInset?.top ?? 0;
-  const top = Math.max(systemInset + contentInset, 100);
+  const top = Math.max(systemInset + contentInset, 160);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
@@ -1623,6 +1623,23 @@ async function initTelegramApp(){
   renderShop();
 }
 initTelegramApp();
+
+// Telegram intercepts the very first downward swipe as "collapse the app" whenever
+// the page is scrolled exactly to the top (scrollY === 0), instead of letting it
+// scroll normally. Keeping scrollY nudged to 1px avoids that false trigger, and
+// making sure the document is at least 1px taller than the viewport guarantees
+// there's always something to scroll in the first place.
+function ensureScrollable(){
+  if(document.documentElement.scrollHeight <= window.innerHeight){
+    document.documentElement.style.setProperty('min-height', 'calc(100vh + 1px)', 'important');
+  }
+}
+function preventSwipeCollapse(){
+  if(window.scrollY === 0){ window.scrollTo(0, 1); }
+}
+window.addEventListener('load', ensureScrollable);
+document.addEventListener('touchstart', preventSwipeCollapse, {passive:true});
+preventSwipeCollapse();
 
 
 </script>
