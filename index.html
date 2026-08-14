@@ -22,6 +22,7 @@
   }
 
   *{box-sizing:border-box; margin:0; padding:0;}
+  html{ overflow-x: hidden; width: 100%; }
 
   body{
     background: var(--bg);
@@ -30,22 +31,18 @@
     min-height: 100vh;
     display:flex;
     justify-content:center;
-    padding: calc(24px + env(safe-area-inset-top, 0px) + var(--safe-top, 0px)) 14px 60px;
+    padding: 24px 14px 60px;
     overflow-x: hidden;
     background-image:
       radial-gradient(circle at 15% 10%, rgba(57,255,138,0.05), transparent 40%),
       radial-gradient(circle at 85% 90%, rgba(255,176,32,0.04), transparent 40%);
   }
 
-  .app-outer{
-    width: 100%;
-    max-width: 560px;
-    overflow: hidden;
-  }
   .app{
     width: 100%;
-    transform: scale(var(--ui-scale, 1));
-    transform-origin: top center;
+    max-width: 560px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + var(--safe-top, 0px));
+    zoom: var(--ui-scale, 1);
   }
 
   body.theme-blue{ --green: #3aa8ff; --green-dim: #1f6f99; }
@@ -723,7 +720,6 @@
 </head>
 <body style="background:#05070a">
 
-<div class="app-outer">
 <div class="app">
 
   <div class="tabs">
@@ -837,10 +833,10 @@
         <div class="settings-label" data-i18n="settingsSize">Размер интерфейса</div>
         <div class="settings-size-val" id="sizeVal">100%</div>
       </div>
-      <input type="range" id="sizeSlider" class="settings-slider" min="80" max="140" step="5" value="100">
+      <input type="range" id="sizeSlider" class="settings-slider" min="80" max="100" step="5" value="100">
       <div class="settings-slider-marks">
         <span data-i18n="sizeSmall">Компактный</span>
-        <span data-i18n="sizeLarge">Крупный</span>
+        <span data-i18n="sizeLarge">Обычный</span>
       </div>
     </div>
 
@@ -864,7 +860,6 @@
     </div>
   </div>
 
-</div>
 </div>
 
 <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
@@ -930,7 +925,7 @@ const TRANSLATIONS = {
     settingsSize: 'Размер интерфейса',
     sizeSmall: 'Компактный',
     sizeMedium: 'Обычный',
-    sizeLarge: 'Крупный',
+    sizeLarge: 'Обычный',
     settingsColor: 'Цвет интерфейса',
     colorGreen: 'Зелёный',
     colorBlue: 'Синий',
@@ -985,7 +980,7 @@ const TRANSLATIONS = {
     settingsSize: 'Interface size',
     sizeSmall: 'Compact',
     sizeMedium: 'Normal',
-    sizeLarge: 'Large',
+    sizeLarge: 'Normal',
     settingsColor: 'Interface color',
     colorGreen: 'Green',
     colorBlue: 'Blue',
@@ -1519,28 +1514,10 @@ updateIngameBalanceUI();
 const sizeSlider = document.getElementById('sizeSlider');
 const sizeValEl = document.getElementById('sizeVal');
 
-// transform:scale() shrinks the .app visually but doesn't affect its layout box,
-// so without this the page keeps the old (unscaled) height — leaving a dead
-// scrollable gap and janky-feeling scroll. Keep .app-outer's real height in sync
-// with the *scaled* content height instead.
-const appEl = document.querySelector('.app');
-const appOuterEl = document.querySelector('.app-outer');
-function currentUiScale(){
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--ui-scale');
-  const n = parseFloat(raw);
-  return isNaN(n) ? 1 : n;
-}
-function syncAppOuterHeight(){
-  appOuterEl.style.height = (appEl.scrollHeight * currentUiScale()) + 'px';
-}
-new ResizeObserver(syncAppOuterHeight).observe(appEl);
-syncAppOuterHeight();
-
 sizeSlider.addEventListener('input', ()=>{
   const pct = +sizeSlider.value;
   sizeValEl.textContent = pct + '%';
   document.documentElement.style.setProperty('--ui-scale', pct / 100);
-  syncAppOuterHeight();
 });
 
 // ===== SETTINGS: color theme =====
@@ -1614,7 +1591,7 @@ function applySafeAreaTop(){
   // own floating header still overlaps our content regardless of detected fullscreen
   // state — so always keep a safe minimum buffer whenever we're inside Telegram,
   // rather than trusting isFullscreen detection which isn't reliably available.
-  const top = Math.max(inset, 200);
+  const top = Math.max(inset, 400);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
@@ -1642,7 +1619,6 @@ async function initTelegramApp(){
     const sizeValEl2 = document.getElementById('sizeVal');
     if(sizeSliderEl){ sizeSliderEl.value = defaultTgScale; }
     if(sizeValEl2){ sizeValEl2.textContent = defaultTgScale + '%'; }
-    syncAppOuterHeight?.();
   }
 
   const saved = await tgGetItems(PERSIST_KEYS);
