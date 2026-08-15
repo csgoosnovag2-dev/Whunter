@@ -183,7 +183,7 @@
   .tabs{
     display:flex;
     gap: 8px;
-    margin-top: 50px;
+    margin-top: 70px;
     margin-bottom: 18px;
     border-bottom: 1px solid var(--line);
   }
@@ -1696,7 +1696,7 @@ function applySafeAreaTop(){
   // under Telegram's own floating header whenever we're inside Telegram at all.
   const systemInset = tg.safeAreaInset?.top ?? 0;
   const contentInset = tg.contentSafeAreaInset?.top ?? 0;
-  const top = Math.max(systemInset + contentInset, 80);
+  const top = Math.max(systemInset + contentInset, 170);
   document.documentElement.style.setProperty('--safe-top', top + 'px');
 }
 
