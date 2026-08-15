@@ -1659,7 +1659,33 @@ langRow.addEventListener('click', (e)=>{
 document.body.classList.add('theme-green');
 
 // ===== TELEGRAM MINI APP: init + per-player cloud persistence =====
-const tg = window.Telegram?.WebApp;
+// tg is a `let`, not `const` — the SDK script (loaded with `defer`) isn't
+// guaranteed to have finished executing by the time this line runs, especially
+// for a `type="module"` script, whose relative ordering against a classic
+// deferred script isn't reliably honored by every WebView engine (Telegram's
+// in-app browser included). A one-time `const` snapshot taken too early would
+// stay `undefined` forever even after the SDK becomes available moments later.
+// waitForTelegramSDK() below polls until it's actually ready and reassigns it —
+// since closures capture the variable binding (not a value snapshot), every
+// function below that reads `tg` at call time will see the corrected value.
+let tg = window.Telegram?.WebApp;
+
+function waitForTelegramSDK(maxWaitMs = 3000){
+  return new Promise(resolve => {
+    if(window.Telegram?.WebApp){ resolve(window.Telegram.WebApp); return; }
+    const start = Date.now();
+    const iv = setInterval(()=>{
+      if(window.Telegram?.WebApp){
+        clearInterval(iv);
+        resolve(window.Telegram.WebApp);
+      } else if(Date.now() - start > maxWaitMs){
+        clearInterval(iv);
+        resolve(null); // give up — genuinely not running inside Telegram
+      }
+    }, 50);
+  });
+}
+
 const PERSIST_KEYS = ['unlockedMax', 'speedMult', 'promoActive'];
 
 function tgGetItems(keys){
@@ -1701,6 +1727,9 @@ function applySafeAreaTop(){
 }
 
 async function initTelegramApp(){
+  if(!tg){
+    tg = await waitForTelegramSDK();
+  }
   if(tg){
     tg.ready();
     tg.expand();
