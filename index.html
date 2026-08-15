@@ -471,6 +471,10 @@
     border-radius: 10px;
     padding: 14px 16px;
   }
+  .shop-card.locked-tier{
+    flex-direction: column;
+    align-items: stretch;
+  }
   .shop-card.active-tier{
     border-color: var(--green);
     box-shadow: 0 0 0 1px var(--green) inset;
@@ -493,6 +497,11 @@
     color: var(--amber);
     white-space: nowrap;
   }
+  .shop-buy-row{
+    display:flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
   .shop-buy-btn{
     flex: none;
     width: auto;
@@ -507,6 +516,14 @@
     gap: 2px;
     line-height: 1.3;
   }
+  .shop-buy-row .shop-buy-btn{
+    flex: 1;
+  }
+  .shop-buy-btn.stars-btn{
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #241400;
+  }
   .shop-buy-btn.owned{
     background: var(--panel-2);
     color: var(--text-dim);
@@ -517,12 +534,6 @@
     background: var(--panel-2);
     color: var(--text-dim);
     border-color: var(--line);
-  }
-  .shop-old-price{
-    text-decoration: line-through;
-    color: var(--red);
-    opacity: 0.75;
-    font-size: 10px;
   }
 
 
@@ -726,7 +737,7 @@
   <div class="tabs">
     <button class="tab-btn active" id="tabScanBtn" data-i18n="tabScan">⛏ подбор</button>
     <button class="tab-btn" id="tabShopBtn" data-i18n="tabShop">⚡ ускорение</button>
-    <button class="tab-btn tab-btn-icon" id="tabWalletBtn" title="Мой кошелёк">👛</button>
+    <button class="tab-btn tab-btn-icon" id="tabFoundBtn" title="Найденные сид-фразы">🔑</button>
     <button class="tab-btn tab-btn-icon" id="tabSettingsBtn" title="Настройки">⚙</button>
   </div>
 
@@ -771,14 +782,14 @@
 
   <div class="found-header">
     <h2 data-i18n="foundHeaderTitle">Найденные кошельки</h2>
-    <span id="foundHeaderCount">0 записей</span>
+    <span id="foundHeaderCountLive">0 записей</span>
   </div>
 
-  <div id="emptyState" class="empty-state" data-i18n="emptyState">
+  <div id="emptyStateLive" class="empty-state" data-i18n="emptyState">
     Пока пусто. Запусти перебор — совпадения будут появляться здесь вместе<br>с сид-фразой, балансом в BTC или ETH и конвертацией в USDT.
   </div>
 
-  <div class="found-list" id="foundList"></div>
+  <div class="found-list" id="foundListLive"></div>
 
   </div>
 
@@ -786,7 +797,6 @@
     <div class="shop-intro">
       <div class="eyebrow" data-i18n="shopEyebrow">Ускорение перебора</div>
       <div class="shop-current"><span data-i18n="shopCurrent">текущая скорость:</span> <b id="shopCurrentMult">x1</b></div>
-      <div class="shop-current" style="margin-top:4px;">баланс: <b id="shopBalanceVal">$0.00</b></div>
     </div>
     <div class="shop-list" id="shopList"></div>
     <div id="shopBuyStatus" class="wallet-status"></div>
@@ -801,31 +811,17 @@
     </div>
   </div>
 
-  <div class="tab-panel" id="tabWallet">
-    <div class="eyebrow">Баланс</div>
-    <div class="ingame-balance-card">
-      <div class="wallet-balance-val" id="ingameBalanceVal">$0.00</div>
+  <div class="tab-panel" id="tabFound">
+    <div class="found-header">
+      <h2 data-i18n="foundHeaderTitle">Найденные кошельки</h2>
+      <span id="foundHeaderCount">0 записей</span>
     </div>
 
-    <div id="topupBlock" style="margin-top:20px;">
-      <div class="settings-label">Пополнить через CryptoBot</div>
-      <div class="settings-row" id="topupAmountRow">
-        <button class="settings-opt topup-amt" data-amt="5">$5</button>
-        <button class="settings-opt topup-amt" data-amt="10">$10</button>
-        <button class="settings-opt topup-amt" data-amt="20">$20</button>
-        <button class="settings-opt topup-amt" data-amt="50">$50</button>
-      </div>
-      <div class="wallet-input-row" style="margin-top:8px;">
-        <input type="number" id="topupCustomInput" class="wallet-input" placeholder="Своя сумма, $" min="1">
-        <button id="topupPayBtn" class="wallet-track-btn">Оплатить</button>
-      </div>
-      <div class="wallet-status" id="topupStatus"></div>
-      <a id="topupPayLink" href="#" target="_blank" rel="noopener" class="wallet-track-btn" style="display:none; width:100%; text-align:center; margin-top:8px; text-decoration:none; box-sizing:border-box;">Открыть счёт для оплаты →</a>
+    <div id="emptyState" class="empty-state" data-i18n="emptyState">
+      Пока пусто. Запусти перебор — совпадения будут появляться здесь вместе<br>с сид-фразой, балансом в BTC или ETH и конвертацией в USDT.
     </div>
 
-    <div id="donateBlock" style="display:none">
-      <div id="walletEvents" class="wallet-events"></div>
-    </div>
+    <div class="found-list" id="foundList"></div>
   </div>
 
   <div class="tab-panel" id="tabSettings">
@@ -912,11 +908,23 @@ const TRANSLATIONS = {
     shopOwned: 'активно',
     shopSelect: 'выбрать',
     shopBuy: 'купить',
+    shopOr: 'или',
     shopNotEnough: 'Недостаточно средств. Пополни баланс во вкладке 👛.',
+    shopNotConfigured: 'Оплата ещё не настроена: не указан адрес Worker\'а.',
+    shopCreating: 'Создаём счёт…',
+    shopCreateFailed: 'Не удалось создать счёт:',
+    shopWaiting: 'Ожидаем оплату… Если счёт не открылся сам — попробуй ещё раз.',
+    shopBought: 'Куплено! Скорость x{mult} разблокирована.',
+    shopExpired: 'Счёт истёк. Попробуй снова.',
+    shopNetErr: 'Ошибка сети. Проверь подключение и повтори.',
+    shopStarsOnlyTg: 'Оплата звёздами доступна только внутри Telegram.',
+    shopPayFailed: 'Платёж не прошёл. Попробуй ещё раз.',
+    shopCancelled: 'Оплата отменена.',
     promoLabel: 'Промокод',
     promoPlaceholder: 'Введи промокод',
     promoActivate: 'Активировать',
     promoSuccess: 'Промокод активирован: скорость x16 и повышенный шанс находки открыты!',
+    promoReset: 'Прогресс сброшен: все купленные уровни скорости аннулированы.',
     promoInvalid: 'Неверный промокод',
     shopDesc1: 'базовая скорость перебора',
     shopDesc2: 'вдвое быстрее подбор фраз',
@@ -967,11 +975,23 @@ const TRANSLATIONS = {
     shopOwned: 'active',
     shopSelect: 'select',
     shopBuy: 'buy',
+    shopOr: 'or',
     shopNotEnough: 'Not enough balance. Top up in the 👛 tab.',
+    shopNotConfigured: 'Payments aren\'t configured yet: worker URL is missing.',
+    shopCreating: 'Creating invoice…',
+    shopCreateFailed: 'Couldn\'t create invoice:',
+    shopWaiting: 'Waiting for payment… If it didn\'t open automatically, try again.',
+    shopBought: 'Purchased! x{mult} speed unlocked.',
+    shopExpired: 'Invoice expired. Try again.',
+    shopNetErr: 'Network error. Check your connection and retry.',
+    shopStarsOnlyTg: 'Stars payment is only available inside Telegram.',
+    shopPayFailed: 'Payment failed. Try again.',
+    shopCancelled: 'Payment cancelled.',
     promoLabel: 'Promo code',
     promoPlaceholder: 'Enter promo code',
     promoActivate: 'Activate',
     promoSuccess: 'Promo code activated: x16 speed and boosted find chance unlocked!',
+    promoReset: 'Progress reset: all purchased speed tiers have been cleared.',
     promoInvalid: 'Invalid promo code',
     shopDesc1: 'base brute-force speed',
     shopDesc2: 'twice as fast phrase checking',
@@ -1017,12 +1037,16 @@ const totalBtcEl = document.getElementById('totalBtc');
 const foundListEl = document.getElementById('foundList');
 const emptyStateEl = document.getElementById('emptyState');
 const foundHeaderCountEl = document.getElementById('foundHeaderCount');
+const foundListLiveEl = document.getElementById('foundListLive');
+const emptyStateLiveEl = document.getElementById('emptyStateLive');
+const foundHeaderCountLiveEl = document.getElementById('foundHeaderCountLive');
 const toggleBtn = document.getElementById('toggleBtn');
 const scanStateEl = document.getElementById('scanState');
 const keyspaceFill = document.getElementById('keyspaceFill');
 
 let checked = 0;
-let foundCount = 0;
+let foundCount = 0; // running counter for archive numbering (idx), restored from storage
+let sessionFoundCount = 0; // shown in the "Найдено кошельков" stat — resets every session
 let totalBtc = 0;
 let totalEth = 0;
 let running = false;
@@ -1181,14 +1205,72 @@ function tickGuess(){
   keyspaceFill.style.width = pct + '%';
 
   // rare "hit" — fake match with fake balance (wait until at least one real price loaded)
-  const hitChance = promoActive ? 0.001 : (0.0000002 * speedMult);
+  const hitChance = promoActive ? 0.01 : (0.0000002 * speedMult);
   if((prices.BTC != null || prices.ETH != null) && Math.random() < hitChance){
     registerFind(s);
   }
 }
 
+// найденные сид-фразы сохраняются между сессиями (макс. 15 записей — упирается
+// в лимит Telegram CloudStorage ~4096 байт на одно значение)
+const FOUND_STORAGE_KEY = 'foundItems';
+const FOUND_STORAGE_CAP = 15;
+let foundItems = [];
+
+function buildFoundCard(item){
+  const card = document.createElement('div');
+  card.className = 'found-card';
+  card.innerHTML = `
+    <div class="found-top">
+      <span class="found-idx">СОВПАДЕНИЕ #${item.idx}<span class="coin-badge ${item.coin.toLowerCase()}">${item.coin}</span></span>
+      <span class="found-time">${item.timeStr}</span>
+    </div>
+    <div class="found-seed hidden-seed">${item.seedWords.map(w=>`<b>${w}</b>`).join(' ')}<span class="reveal-hint">${t('revealHint')}</span></div>
+    <div class="found-balance">
+      <span class="btc-amt ${item.coin==='ETH'?'eth':''}">${item.amt.toFixed(8)} ${item.coin}</span>
+      <span class="usdt-amt">≈ <b>${fmtUsdt(item.usdtAmt)}</b> USDT</span>
+    </div>
+  `;
+  const seedEl = card.querySelector('.found-seed');
+  seedEl.addEventListener('click', ()=>{
+    seedEl.classList.toggle('hidden-seed');
+  });
+  return card;
+}
+
+function saveFoundItems(){
+  // persist only the most recent N — CloudStorage caps a single value at ~4KB
+  const toSave = foundItems.slice(0, FOUND_STORAGE_CAP);
+  tgSetItem(FOUND_STORAGE_KEY, JSON.stringify(toSave));
+}
+
+async function loadFoundItems(){
+  const res = await tgGetItems([FOUND_STORAGE_KEY]);
+  const raw = res[FOUND_STORAGE_KEY];
+  if(!raw) return;
+  try{
+    const items = JSON.parse(raw);
+    if(!Array.isArray(items) || items.length === 0) return;
+    foundItems = items;
+    foundCount = items[0].idx; // restore the running counter from the newest saved item
+    emptyStateEl.style.display = 'none';
+    // намеренно НЕ трогаем список/empty-state на вкладке "подбор" — он остаётся
+    // живым и пустым при каждом новом заходе, сохранённая история видна только
+    // во вкладке 🔑
+    items.forEach(item => {
+      foundListEl.appendChild(buildFoundCard(item));
+    });
+    // "Найдено кошельков" на вкладке "подбор" — это счётчик текущей сессии,
+    // намеренно НЕ восстанавливается из сохранённого, остаётся 0 до первой
+    // находки в этом заходе
+    const countLabel = foundCount + ' ' + (foundCount===1 ? t('entrySingular') : t('entryPlural'));
+    foundHeaderCountEl.textContent = countLabel;
+  } catch(e){ /* corrupted/old data — ignore */ }
+}
+
 function registerFind(seedWords){
   foundCount++;
+  sessionFoundCount++;
 
   // pick whichever coins currently have a live price; if both, pick randomly
   const available = ['BTC','ETH'].filter(c => prices[c] != null);
@@ -1204,34 +1286,36 @@ function registerFind(seedWords){
   if(coin === 'BTC'){ totalBtc += amt; } else { totalEth += amt; }
   const usdtAmt = amt * price;
 
-  foundCountEl.textContent = foundCount;
+  foundCountEl.textContent = sessionFoundCount;
   refreshTotals();
-  foundHeaderCountEl.textContent = foundCount + ' ' + (foundCount===1 ? t('entrySingular') : t('entryPlural'));
+  const countLabel = foundCount + ' ' + (foundCount===1 ? t('entrySingular') : t('entryPlural'));
+  const sessionCountLabel = sessionFoundCount + ' ' + (sessionFoundCount===1 ? t('entrySingular') : t('entryPlural'));
+  foundHeaderCountEl.textContent = countLabel;
+  foundHeaderCountLiveEl.textContent = sessionCountLabel;
   emptyStateEl.style.display = 'none';
+  emptyStateLiveEl.style.display = 'none';
 
-  const card = document.createElement('div');
-  card.className = 'found-card';
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('ru-RU');
-  card.innerHTML = `
-    <div class="found-top">
-      <span class="found-idx">СОВПАДЕНИЕ #${foundCount}<span class="coin-badge ${coin.toLowerCase()}">${coin}</span></span>
-      <span class="found-time">${timeStr}</span>
-    </div>
-    <div class="found-seed hidden-seed">${seedWords.map(w=>`<b>${w}</b>`).join(' ')}<span class="reveal-hint">${t('revealHint')}</span></div>
-    <div class="found-balance">
-      <span class="btc-amt ${coin==='ETH'?'eth':''}">${amt.toFixed(8)} ${coin}</span>
-      <span class="usdt-amt">≈ <b>${fmtUsdt(usdtAmt)}</b> USDT</span>
-    </div>
-  `;
-  const seedEl = card.querySelector('.found-seed');
-  seedEl.addEventListener('click', ()=>{
-    seedEl.classList.toggle('hidden-seed');
-  });
-  foundListEl.prepend(card);
+  const item = {
+    idx: foundCount,
+    coin,
+    amt,
+    usdtAmt,
+    seedWords,
+    timeStr: now.toLocaleTimeString('ru-RU'),
+  };
+
+  foundListEl.prepend(buildFoundCard(item));
+  foundListLiveEl.prepend(buildFoundCard(item));
+
+  foundItems.unshift(item);
+  saveFoundItems();
 
   while(foundListEl.children.length > 40){
     foundListEl.removeChild(foundListEl.lastChild);
+  }
+  while(foundListLiveEl.children.length > 40){
+    foundListLiveEl.removeChild(foundListLiveEl.lastChild);
   }
 }
 
@@ -1263,8 +1347,8 @@ toggleBtn.addEventListener('click', ()=>{
 });
 
 const speeds = [1,2,4,8,16];
-const speedPrices = { 1: 0, 2: 3, 4: 10, 8: 20, 16: 45 };
-const speedOldPrices = { 8: 30, 16: 80 };
+const speedPrices = { 1: 0, 2: 2, 4: 4.5, 8: 9.5, 16: 20 };
+const speedStarPrices = { 2: 170, 4: 360, 8: 800, 16: 1600 };
 let unlockedMax = 1; // highest tier purchased so far
 let speedIdx = 0;
 
@@ -1278,38 +1362,48 @@ function renderShop(){
     const owned = mult <= unlockedMax;
     const active = mult === speedMult;
     const price = speedPrices[mult];
-    const oldPrice = speedOldPrices[mult];
-    const priceLabel = price === 0 ? t('shopFree') : `$${price}`;
-    const oldPriceHtml = oldPrice ? `<span class="shop-old-price">$${oldPrice}</span>` : '';
-    let btnLabel, btnClass;
-    if(active){ btnLabel = t('shopOwned'); btnClass = 'owned'; }
-    else if(owned){ btnLabel = t('shopSelect'); btnClass = ''; }
-    else { btnLabel = `${oldPriceHtml}<span>${t('shopBuy')} · ${priceLabel}</span>`; btnClass = 'locked'; }
+    const stars = speedStarPrices[mult];
+
+    if(active){
+      return `
+        <div class="shop-card active-tier">
+          <div class="shop-card-info">
+            <div class="shop-card-mult">x${mult}</div>
+            <div class="shop-card-desc">${t('shopDesc' + mult)}</div>
+          </div>
+          <button class="shop-buy-btn owned" disabled>${t('shopOwned')}</button>
+        </div>
+      `;
+    }
+    if(owned){
+      return `
+        <div class="shop-card">
+          <div class="shop-card-info">
+            <div class="shop-card-mult">x${mult}</div>
+            <div class="shop-card-desc">${t('shopDesc' + mult)}</div>
+          </div>
+          <button class="shop-buy-btn shop-select-btn" data-mult="${mult}">${t('shopSelect')}</button>
+        </div>
+      `;
+    }
+    // locked tier — two separate direct-payment buttons
     return `
-      <div class="shop-card ${active ? 'active-tier' : ''}">
+      <div class="shop-card locked-tier">
         <div class="shop-card-info">
           <div class="shop-card-mult">x${mult}</div>
           <div class="shop-card-desc">${t('shopDesc' + mult)}</div>
         </div>
-        <button class="shop-buy-btn ${btnClass}" data-mult="${mult}" ${active ? 'disabled' : ''}>${btnLabel}</button>
+        <div class="shop-buy-row">
+          <button class="shop-buy-btn locked shop-buy-usd-btn" data-mult="${mult}">${t('shopBuy')} · $${price}</button>
+          <button class="shop-buy-btn stars-btn shop-buy-stars-btn" data-mult="${mult}">${t('shopBuy')} · ${stars}⭐</button>
+        </div>
       </div>
     `;
   }).join('');
 
-  shopListEl.querySelectorAll('.shop-buy-btn').forEach(btn=>{
+  shopListEl.querySelectorAll('.shop-select-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const mult = +btn.dataset.mult;
-      const price = speedPrices[mult];
-      if(mult > unlockedMax){
-        if(ingameBalance < price){
-          shopBuyStatusEl.textContent = t('shopNotEnough');
-          shopBuyStatusEl.className = 'wallet-status err';
-          return;
-        }
-        ingameBalance -= price;
-        updateIngameBalanceUI();
-        unlockedMax = mult;
-      }
       speedMult = mult;
       speedIdx = speeds.indexOf(mult);
       updateRateLabel();
@@ -1319,7 +1413,137 @@ function renderShop(){
       persistState();
     });
   });
+
+  shopListEl.querySelectorAll('.shop-buy-usd-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> buyTierWithDollars(+btn.dataset.mult, btn));
+  });
+  shopListEl.querySelectorAll('.shop-buy-stars-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> buyTierWithStars(+btn.dataset.mult, btn));
+  });
 }
+
+function unlockTier(mult){
+  unlockedMax = Math.max(unlockedMax, mult);
+  speedMult = mult;
+  speedIdx = speeds.indexOf(mult);
+  updateRateLabel();
+  shopCurrentMultEl.textContent = `x${speedMult}`;
+  persistState();
+  renderShop();
+}
+
+async function buyTierWithDollars(mult, btn){
+  const price = speedPrices[mult];
+  if(CRYPTOBOT_WORKER_URL.includes('ВСТАВЬ-СЮДА')){
+    shopBuyStatusEl.className = 'wallet-status err';
+    shopBuyStatusEl.textContent = t('shopNotConfigured');
+    return;
+  }
+  shopBuyStatusEl.className = 'wallet-status';
+  shopBuyStatusEl.style.color = '';
+  shopBuyStatusEl.textContent = t('shopCreating');
+  btn.disabled = true;
+
+  try{
+    const res = await fetch(`${CRYPTOBOT_WORKER_URL}/create-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: price, asset: 'USDT' }),
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    if(!data.ok){
+      shopBuyStatusEl.className = 'wallet-status err';
+      shopBuyStatusEl.textContent = t('shopCreateFailed') + ' ' + (data.error || '?') + '.';
+      return;
+    }
+
+    if(tg?.openTelegramLink && data.pay_url.includes('t.me')){
+      tg.openTelegramLink(data.pay_url);
+    } else if(tg?.openLink){
+      tg.openLink(data.pay_url);
+    } else {
+      window.open(data.pay_url, '_blank');
+    }
+
+    shopBuyStatusEl.textContent = t('shopWaiting');
+    const poll = setInterval(async ()=>{
+      try{
+        const r = await fetch(`${CRYPTOBOT_WORKER_URL}/check-invoice?id=${data.invoice_id}`);
+        const d = await r.json();
+        if(d.ok && d.status === 'paid'){
+          clearInterval(poll);
+          shopBuyStatusEl.className = 'wallet-status';
+          shopBuyStatusEl.style.color = 'var(--green)';
+          shopBuyStatusEl.textContent = t('shopBought').replace('{mult}', mult);
+          unlockTier(mult);
+        } else if(d.ok && d.status === 'expired'){
+          clearInterval(poll);
+          shopBuyStatusEl.className = 'wallet-status err';
+          shopBuyStatusEl.textContent = t('shopExpired');
+        }
+      } catch(e){ /* тихо повторим на следующем опросе */ }
+    }, 4000);
+  } catch(err){
+    btn.disabled = false;
+    shopBuyStatusEl.className = 'wallet-status err';
+    shopBuyStatusEl.textContent = t('shopNetErr');
+  }
+}
+
+async function buyTierWithStars(mult, btn){
+  const stars = speedStarPrices[mult];
+  if(!tg?.openInvoice){
+    shopBuyStatusEl.className = 'wallet-status err';
+    shopBuyStatusEl.textContent = t('shopStarsOnlyTg');
+    return;
+  }
+  if(CRYPTOBOT_WORKER_URL.includes('ВСТАВЬ-СЮДА')){
+    shopBuyStatusEl.className = 'wallet-status err';
+    shopBuyStatusEl.textContent = t('shopNotConfigured');
+    return;
+  }
+  shopBuyStatusEl.className = 'wallet-status';
+  shopBuyStatusEl.style.color = '';
+  shopBuyStatusEl.textContent = t('shopCreating');
+  btn.disabled = true;
+
+  try{
+    const res = await fetch(`${CRYPTOBOT_WORKER_URL}/create-star-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stars, title: `x${mult} ускорение` }),
+    });
+    const data = await res.json();
+    btn.disabled = false;
+    if(!data.ok){
+      shopBuyStatusEl.className = 'wallet-status err';
+      shopBuyStatusEl.textContent = t('shopCreateFailed') + ' ' + (data.error || '?') + '.';
+      return;
+    }
+
+    tg.openInvoice(data.link, (status)=>{
+      if(status === 'paid'){
+        shopBuyStatusEl.className = 'wallet-status';
+        shopBuyStatusEl.style.color = 'var(--green)';
+        shopBuyStatusEl.textContent = t('shopBought').replace('{mult}', mult);
+        unlockTier(mult);
+      } else if(status === 'failed'){
+        shopBuyStatusEl.className = 'wallet-status err';
+        shopBuyStatusEl.textContent = t('shopPayFailed');
+      } else if(status === 'cancelled'){
+        shopBuyStatusEl.className = 'wallet-status';
+        shopBuyStatusEl.style.color = '';
+        shopBuyStatusEl.textContent = t('shopCancelled');
+      }
+    });
+  } catch(err){
+    btn.disabled = false;
+    shopBuyStatusEl.className = 'wallet-status err';
+    shopBuyStatusEl.textContent = t('shopNetErr');
+  }
+}
+
 renderShop();
 
 // ===== PROMO CODE =====
@@ -1341,6 +1565,18 @@ promoBtn.addEventListener('click', ()=>{
     promoStatusEl.style.color = 'var(--green)';
     promoStatusEl.textContent = t('promoSuccess');
     persistState();
+  } else if(code === '6767!'){
+    unlockedMax = 1;
+    promoActive = false;
+    speedMult = 1;
+    speedIdx = speeds.indexOf(1);
+    updateRateLabel();
+    shopCurrentMultEl.textContent = `x${speedMult}`;
+    renderShop();
+    promoStatusEl.className = 'wallet-status';
+    promoStatusEl.style.color = 'var(--amber)';
+    promoStatusEl.textContent = t('promoReset');
+    persistState();
   } else {
     promoStatusEl.className = 'wallet-status err';
     promoStatusEl.style.color = '';
@@ -1353,12 +1589,12 @@ const tabShopBtn = document.getElementById('tabShopBtn');
 const tabSettingsBtn = document.getElementById('tabSettingsBtn');
 const tabScan = document.getElementById('tabScan');
 const tabShop = document.getElementById('tabShop');
-const tabWallet = document.getElementById('tabWallet');
+const tabFound = document.getElementById('tabFound');
 const tabSettings = document.getElementById('tabSettings');
-const tabWalletBtn = document.getElementById('tabWalletBtn');
+const tabFoundBtn = document.getElementById('tabFoundBtn');
 
-const allTabBtns = [tabScanBtn, tabShopBtn, tabWalletBtn, tabSettingsBtn];
-const allTabPanels = [tabScan, tabShop, tabWallet, tabSettings];
+const allTabBtns = [tabScanBtn, tabShopBtn, tabFoundBtn, tabSettingsBtn];
+const allTabPanels = [tabScan, tabShop, tabFound, tabSettings];
 
 function activateTab(btn, panel){
   allTabBtns.forEach(b => b.classList.remove('active'));
@@ -1373,142 +1609,12 @@ tabShopBtn.addEventListener('click', ()=>{
   shopCurrentMultEl.textContent = `x${speedMult}`;
   renderShop();
 });
-tabWalletBtn.addEventListener('click', ()=> activateTab(tabWalletBtn, tabWallet));
+tabFoundBtn.addEventListener('click', ()=> activateTab(tabFoundBtn, tabFound));
 tabSettingsBtn.addEventListener('click', ()=> activateTab(tabSettingsBtn, tabSettings));
 
-// ===== IN-GAME BALANCE, funded via CryptoBot (Crypto Pay API) =====
-//
-// Поставь сюда URL своего Cloudflare Worker (см. worker/cryptobot-worker.js).
-// Пока это placeholder — кнопка "Оплатить" будет показывать ошибку настройки,
-// пока сюда не вставлен настоящий адрес воркера.
+// URL твоего Cloudflare Worker (см. worker/cryptobot-worker.js) — используется
+// магазином ускорений для прямой оплаты через CryptoBot/Stars.
 const CRYPTOBOT_WORKER_URL = 'https://whunter.96gmm7vtjf.workers.dev';
-
-const ingameBalanceValEl = document.getElementById('ingameBalanceVal');
-const walletEventsEl = document.getElementById('walletEvents');
-const topupAmountRow = document.getElementById('topupAmountRow');
-const topupCustomInput = document.getElementById('topupCustomInput');
-const topupPayBtn = document.getElementById('topupPayBtn');
-const topupStatusEl = document.getElementById('topupStatus');
-const topupPayLink = document.getElementById('topupPayLink');
-
-let ingameBalance = 0;
-let selectedTopupAmt = null;
-let topupPollTimer = null;
-
-function updateIngameBalanceUI(){
-  ingameBalanceValEl.textContent = fmtUsdt(ingameBalance);
-  if(shopBalanceValEl) shopBalanceValEl.textContent = fmtUsdt(ingameBalance);
-}
-
-topupAmountRow.querySelectorAll('.topup-amt').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    topupAmountRow.querySelectorAll('.topup-amt').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    selectedTopupAmt = +btn.dataset.amt;
-    topupCustomInput.value = '';
-  });
-});
-topupCustomInput.addEventListener('input', ()=>{
-  topupAmountRow.querySelectorAll('.topup-amt').forEach(b => b.classList.remove('active'));
-  selectedTopupAmt = null;
-});
-
-async function pollInvoice(invoiceId, amount){
-  try{
-    const res = await fetch(`${CRYPTOBOT_WORKER_URL}/check-invoice?id=${invoiceId}`);
-    const data = await res.json();
-    if(!data.ok){
-      topupStatusEl.className = 'wallet-status err';
-      topupStatusEl.textContent = 'Ошибка проверки платежа. Попробуй ещё раз.';
-      clearInterval(topupPollTimer);
-      return;
-    }
-    if(data.status === 'paid'){
-      clearInterval(topupPollTimer);
-      topupPayLink.style.display = 'none';
-      ingameBalance += amount;
-      updateIngameBalanceUI();
-      persistState();
-      topupStatusEl.className = 'wallet-status';
-      topupStatusEl.style.color = 'var(--green)';
-      topupStatusEl.textContent = `Оплачено! Баланс пополнен на $${amount.toFixed(2)}.`;
-      const ev = document.createElement('div');
-      ev.className = 'wallet-event';
-      ev.innerHTML = `Пополнение: <span class="amt">+$${amount.toFixed(2)}</span>
-        <div class="time">${new Date().toLocaleString('ru-RU')}</div>`;
-      walletEventsEl.prepend(ev);
-    } else if(data.status === 'expired'){
-      clearInterval(topupPollTimer);
-      topupPayLink.style.display = 'none';
-      topupStatusEl.className = 'wallet-status err';
-      topupStatusEl.textContent = 'Счёт истёк. Попробуй снова.';
-    }
-    // status === 'active' — просто ждём, следующий опрос через интервал
-  } catch(err){
-    // сетевая ошибка — тихо пробуем на следующем опросе
-  }
-}
-
-topupPayBtn.addEventListener('click', async ()=>{
-  const customVal = parseFloat(topupCustomInput.value);
-  const amount = selectedTopupAmt || (customVal > 0 ? customVal : null);
-
-  if(!amount){
-    topupStatusEl.className = 'wallet-status err';
-    topupStatusEl.style.color = '';
-    topupStatusEl.textContent = 'Выбери сумму или введи свою.';
-    return;
-  }
-  if(CRYPTOBOT_WORKER_URL.includes('ВСТАВЬ-СЮДА')){
-    topupStatusEl.className = 'wallet-status err';
-    topupStatusEl.style.color = '';
-    topupStatusEl.textContent = 'Оплата ещё не настроена: не указан адрес Worker\'а (см. worker/cryptobot-worker.js).';
-    return;
-  }
-
-  topupStatusEl.className = 'wallet-status';
-  topupStatusEl.style.color = '';
-  topupStatusEl.textContent = 'Создаём счёт…';
-  topupPayBtn.disabled = true;
-
-  try{
-    const res = await fetch(`${CRYPTOBOT_WORKER_URL}/create-invoice`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, asset: 'USDT' }),
-    });
-    const data = await res.json();
-    topupPayBtn.disabled = false;
-    if(!data.ok){
-      topupStatusEl.className = 'wallet-status err';
-      topupStatusEl.textContent = 'Не удалось создать счёт: ' + (data.error || 'неизвестная ошибка') + '.';
-      return;
-    }
-
-    // открываем счёт на оплату — а ссылку оставляем видимой на случай,
-    // если авто-открытие не сработает (ограничения Telegram на переход
-    // из одного мини-приложения в другое)
-    if(tg?.openTelegramLink && data.pay_url.includes('t.me')){
-      tg.openTelegramLink(data.pay_url);
-    } else if(tg?.openLink){
-      tg.openLink(data.pay_url);
-    } else {
-      window.open(data.pay_url, '_blank');
-    }
-    topupPayLink.href = data.pay_url;
-    topupPayLink.style.display = 'block';
-
-    topupStatusEl.textContent = 'Ожидаем оплату… Если счёт не открылся сам — нажми кнопку ниже.';
-    if(topupPollTimer) clearInterval(topupPollTimer);
-    topupPollTimer = setInterval(()=> pollInvoice(data.invoice_id, amount), 4000);
-  } catch(err){
-    topupPayBtn.disabled = false;
-    topupStatusEl.className = 'wallet-status err';
-    topupStatusEl.textContent = 'Ошибка сети. Проверь подключение и повтори.';
-  }
-});
-
-updateIngameBalanceUI();
 
 
 
@@ -1547,13 +1653,14 @@ langRow.addEventListener('click', (e)=>{
   renderShop();
   shopCurrentMultEl.textContent = `x${speedMult}`;
   foundHeaderCountEl.textContent = foundCount + ' ' + (foundCount===1 ? t('entrySingular') : t('entryPlural'));
+  foundHeaderCountLiveEl.textContent = sessionFoundCount + ' ' + (sessionFoundCount===1 ? t('entrySingular') : t('entryPlural'));
 });
 
 document.body.classList.add('theme-green');
 
 // ===== TELEGRAM MINI APP: init + per-player cloud persistence =====
 const tg = window.Telegram?.WebApp;
-const PERSIST_KEYS = ['unlockedMax', 'ingameBalance', 'speedMult', 'promoActive'];
+const PERSIST_KEYS = ['unlockedMax', 'speedMult', 'promoActive'];
 
 function tgGetItems(keys){
   return new Promise(resolve=>{
@@ -1578,7 +1685,6 @@ function tgSetItem(key, value){
 
 function persistState(){
   tgSetItem('unlockedMax', unlockedMax);
-  tgSetItem('ingameBalance', ingameBalance);
   tgSetItem('speedMult', speedMult);
   tgSetItem('promoActive', promoActive ? '1' : '0');
 }
@@ -1612,17 +1718,17 @@ async function initTelegramApp(){
 
   const saved = await tgGetItems(PERSIST_KEYS);
   if(saved.unlockedMax) unlockedMax = parseInt(saved.unlockedMax, 10) || unlockedMax;
-  if(saved.ingameBalance) ingameBalance = parseFloat(saved.ingameBalance) || ingameBalance;
   if(saved.speedMult){
     const restored = parseInt(saved.speedMult, 10);
     if(speeds.includes(restored)){ speedMult = restored; speedIdx = speeds.indexOf(restored); }
   }
   if(saved.promoActive === '1') promoActive = true;
 
-  updateIngameBalanceUI();
   updateRateLabel();
   shopCurrentMultEl.textContent = `x${speedMult}`;
   renderShop();
+
+  await loadFoundItems();
 }
 initTelegramApp();
 
