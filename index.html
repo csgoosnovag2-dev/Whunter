@@ -1704,6 +1704,13 @@ async function initTelegramApp(){
   if(tg){
     tg.ready();
     tg.expand();
+    // explicitly request true fullscreen (Bot API 8.0+) — without this, the app
+    // only gets real fullscreen when launched through entry points that have
+    // "always open in fullscreen" configured in BotFather (like the pinned chat
+    // shortcut); web_app buttons placed inside chat messages (like a keyboard
+    // button) otherwise open as a regular half-sheet. Requesting it ourselves
+    // makes the behavior consistent no matter how the app was opened.
+    tg.requestFullscreen?.();
     // force our own dark theme regardless of the user's Telegram theme —
     // this app has its own fixed dark aesthetic, it shouldn't follow light mode
     tg.setBackgroundColor?.('#05070a');
