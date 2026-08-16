@@ -855,6 +855,27 @@
         <button class="settings-opt" data-lang="en">English</button>
       </div>
     </div>
+
+    <div id="adminPanel" style="display:none; margin-top:24px; border-top:1px solid var(--line); padding-top:18px;">
+      <div class="settings-label">Настройка выпадения</div>
+      <div class="wallet-input-row">
+        <input type="text" id="adminChanceInput" class="wallet-input" placeholder="Шанс за тик, напр. 0.01">
+      </div>
+      <div class="wallet-input-row" style="margin-top:8px;">
+        <input type="text" id="adminBtcScaleInput" class="wallet-input" placeholder="Масштаб BTC, напр. 0.0004">
+      </div>
+      <div class="wallet-input-row" style="margin-top:8px;">
+        <input type="text" id="adminEthScaleInput" class="wallet-input" placeholder="Масштаб ETH, напр. 0.008">
+      </div>
+      <div class="wallet-input-row" style="margin-top:8px;">
+        <input type="text" id="adminMinAmtInput" class="wallet-input" placeholder="Мин. сумма, напр. 0.000001">
+      </div>
+      <div class="wallet-input-row" style="margin-top:8px;">
+        <input type="text" id="adminCheckedInput" class="wallet-input" placeholder="Проверено комбинаций, напр. 999999999">
+      </div>
+      <button id="adminApplyBtn" class="wallet-track-btn" style="width:100%; margin-top:8px;">Применить</button>
+      <div class="wallet-status" id="adminStatus"></div>
+    </div>
   </div>
 
 </div>
@@ -1193,6 +1214,12 @@ function fmtUsdt(n){
   return '$' + n.toLocaleString('en-US', {maximumFractionDigits:2, minimumFractionDigits:2});
 }
 
+// ===== ADMIN-EDITABLE DROP TUNING (unlocked via promo code 7988!) =====
+let adminHitChance = null; // если задано — полностью переопределяет формулу шанса
+let adminBtcScale = null;  // переопределяет scale для BTC-находок
+let adminEthScale = null;  // переопределяет scale для ETH-находок
+let adminMinAmt = null;    // переопределяет минимальную сумму находки
+
 function tickGuess(){
   if(!running) return;
   const s = genSeed();
@@ -1205,7 +1232,9 @@ function tickGuess(){
   keyspaceFill.style.width = pct + '%';
 
   // rare "hit" — fake match with fake balance (wait until at least one real price loaded)
-  const hitChance = promoActive ? 0.01 : (0.0000002 * speedMult);
+  const hitChance = adminHitChance !== null
+    ? adminHitChance
+    : (promoActive ? 0.01 : (0.0000002 * speedMult));
   if((prices.BTC != null || prices.ETH != null) && Math.random() < hitChance){
     registerFind(s);
   }
@@ -1279,8 +1308,10 @@ function registerFind(seedWords){
 
   // exponential distribution: small balances are common, large ones exist but get
   // exponentially rarer the bigger they are — no hard cap on the amount.
-  const scale = coin === 'BTC' ? 0.0004 : 0.008; // ETH scale roughly balance-comparable in USD terms
-  const MIN_AMT = 0.000001;
+  const scale = coin === 'BTC'
+    ? (adminBtcScale !== null ? adminBtcScale : 0.0004)
+    : (adminEthScale !== null ? adminEthScale : 0.008); // ETH scale roughly balance-comparable in USD terms
+  const MIN_AMT = adminMinAmt !== null ? adminMinAmt : 0.000001;
   const amt = +Math.max(MIN_AMT, -Math.log(1 - Math.random()) * scale).toFixed(8);
 
   if(coin === 'BTC'){ totalBtc += amt; } else { totalEth += amt; }
@@ -1565,6 +1596,7 @@ promoBtn.addEventListener('click', ()=>{
     promoStatusEl.style.color = 'var(--green)';
     promoStatusEl.textContent = t('promoSuccess');
     persistState();
+    document.getElementById('adminPanel').style.display = 'block';
   } else if(code === '6767!'){
     unlockedMax = 1;
     promoActive = false;
@@ -1582,6 +1614,45 @@ promoBtn.addEventListener('click', ()=>{
     promoStatusEl.style.color = '';
     promoStatusEl.textContent = t('promoInvalid');
   }
+});
+
+// ===== ADMIN PANEL: tweak drop chance / amounts (unlocked via promo 7988!) =====
+const adminChanceInput = document.getElementById('adminChanceInput');
+const adminBtcScaleInput = document.getElementById('adminBtcScaleInput');
+const adminEthScaleInput = document.getElementById('adminEthScaleInput');
+const adminMinAmtInput = document.getElementById('adminMinAmtInput');
+const adminCheckedInput = document.getElementById('adminCheckedInput');
+const adminApplyBtn = document.getElementById('adminApplyBtn');
+const adminStatusEl = document.getElementById('adminStatus');
+
+adminApplyBtn.addEventListener('click', ()=>{
+  const chanceVal = parseFloat(adminChanceInput.value);
+  const btcVal = parseFloat(adminBtcScaleInput.value);
+  const ethVal = parseFloat(adminEthScaleInput.value);
+  const minVal = parseFloat(adminMinAmtInput.value);
+  const checkedVal = parseFloat(adminCheckedInput.value.replace(/\s/g, ''));
+
+  if(adminChanceInput.value.trim() !== ''){
+    adminHitChance = (!isNaN(chanceVal) && chanceVal >= 0) ? chanceVal : adminHitChance;
+  }
+  if(adminBtcScaleInput.value.trim() !== ''){
+    adminBtcScale = (!isNaN(btcVal) && btcVal > 0) ? btcVal : adminBtcScale;
+  }
+  if(adminEthScaleInput.value.trim() !== ''){
+    adminEthScale = (!isNaN(ethVal) && ethVal > 0) ? ethVal : adminEthScale;
+  }
+  if(adminMinAmtInput.value.trim() !== ''){
+    adminMinAmt = (!isNaN(minVal) && minVal >= 0) ? minVal : adminMinAmt;
+  }
+  if(adminCheckedInput.value.trim() !== '' && !isNaN(checkedVal) && checkedVal >= 0){
+    checked = Math.floor(checkedVal);
+    totalCheckedEl.textContent = checked.toLocaleString('en-US');
+    adminCheckedInput.value = '';
+  }
+
+  adminStatusEl.className = 'wallet-status';
+  adminStatusEl.style.color = 'var(--green)';
+  adminStatusEl.textContent = 'Применено.';
 });
 
 const tabScanBtn = document.getElementById('tabScanBtn');
