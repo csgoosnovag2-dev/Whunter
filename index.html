@@ -524,6 +524,21 @@
     border-color: var(--amber);
     color: #241400;
   }
+  .stars-buy-group{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+  .stars-old-price{
+    text-decoration: line-through;
+    opacity: 0.55;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    flex: none;
+  }
   .shop-buy-btn.owned{
     background: var(--panel-2);
     color: var(--text-dim);
@@ -1379,7 +1394,8 @@ toggleBtn.addEventListener('click', ()=>{
 
 const speeds = [1,2,4,8,16];
 const speedPrices = { 1: 0, 2: 2, 4: 4.5, 8: 9.5, 16: 20 };
-const speedStarPrices = { 2: 170, 4: 360, 8: 800, 16: 1600 };
+const speedStarPricesOld = { 2: 170, 4: 360, 8: 800, 16: 1600 };
+const speedStarPrices = { 2: 100, 4: 225, 8: 500, 16: 1000 };
 let unlockedMax = 1; // highest tier purchased so far
 let speedIdx = 0;
 
@@ -1394,6 +1410,7 @@ function renderShop(){
     const active = mult === speedMult;
     const price = speedPrices[mult];
     const stars = speedStarPrices[mult];
+    const starsOld = speedStarPricesOld[mult];
 
     if(active){
       return `
@@ -1426,7 +1443,10 @@ function renderShop(){
         </div>
         <div class="shop-buy-row">
           <button class="shop-buy-btn locked shop-buy-usd-btn" data-mult="${mult}">${t('shopBuy')} · $${price}</button>
-          <button class="shop-buy-btn stars-btn shop-buy-stars-btn" data-mult="${mult}">${t('shopBuy')} · ${stars}⭐</button>
+          <div class="stars-buy-group">
+            <span class="stars-old-price">${starsOld}⭐</span>
+            <button class="shop-buy-btn stars-btn shop-buy-stars-btn" data-mult="${mult}">${stars}⭐</button>
+          </div>
         </div>
       </div>
     `;
